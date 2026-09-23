@@ -45,11 +45,21 @@
             }
         }
 
+        /* Logo and footer stay put; only the nav links scroll */
         .iaris-sidebar .offcanvas-body {
             display: flex;
             flex-direction: column;
-            padding: 28px 0;
+            height: 100%;
+            padding: 24px 0 16px;
+            overflow: hidden;
+        }
+
+        .iaris-nav-scroll {
+            flex: 1;
+            min-height: 0;
             overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
         }
 
         .iaris-logo-mark {
@@ -59,14 +69,15 @@
         }
 
         .iaris-logo {
-            padding: 0 24px 24px;
-            margin-bottom: 20px;
+            flex-shrink: 0;
+            padding: 0 24px 20px;
+            margin-bottom: 16px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.18);
         }
 
         .iaris-nav-section {
             padding: 0 14px;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
 
         .iaris-nav-label {
@@ -82,7 +93,7 @@
             align-items: center;
             gap: 12px;
             width: 100%;
-            padding: 10px 14px;
+            padding: 8px 14px;
             margin: 2px 0;
             border: 0;
             border-radius: 10px;
@@ -111,8 +122,8 @@
         }
 
         .iaris-sidebar-footer {
-            margin-top: auto;
-            padding: 16px 14px 0;
+            flex-shrink: 0;
+            padding: 12px 14px 0;
             border-top: 1px solid rgba(255, 255, 255, 0.18);
         }
 
