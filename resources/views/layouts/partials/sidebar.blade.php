@@ -21,17 +21,21 @@
             <div class="small fw-bold tracking-wide text-iaris-pale px-3 mb-1">MAIN</div>
             <nav class="nav nav-pills flex-column mb-3">
                 <a href="{{ url('/home') }}" class="nav-link {{ request()->is('home') ? 'active' : '' }}"><i class="bi bi-grid-1x2"></i> Dashboard</a>
-                <a href="#" class="nav-link"><i class="bi bi-people"></i> Applicants</a>
-                <a href="#" class="nav-link"><i class="bi bi-file-earmark-text"></i> Reports</a>
-                <a href="#" class="nav-link"><i class="bi bi-bar-chart-line"></i> Analytics</a>
+                <a href="{{ url('/applicants') }}" class="nav-link {{ request()->is('applicants*') ? 'active' : '' }}"><i class="bi bi-people"></i> Applicants</a>
+                <a href="{{ url('/reports') }}" class="nav-link {{ request()->is('reports*') ? 'active' : '' }}"><i class="bi bi-file-earmark-text"></i> Reports</a>
+                <a href="{{ url('/analytics') }}" class="nav-link {{ request()->is('analytics*') ? 'active' : '' }}"><i class="bi bi-bar-chart-line"></i> Analytics</a>
                 <a href="{{ url('/ai-chat') }}" class="nav-link {{ request()->is('ai-chat') ? 'active' : '' }}"><i class="bi bi-stars"></i> AI Assistant</a>
             </nav>
 
             <div class="small fw-bold tracking-wide text-iaris-pale px-3 mb-1">RECORDS</div>
             <nav class="nav nav-pills flex-column mb-3">
-                <a href="#" class="nav-link"><i class="bi bi-mortarboard"></i> College</a>
-                <a href="#" class="nav-link"><i class="bi bi-building"></i> Senior High</a>
-                <a href="#" class="nav-link"><i class="bi bi-award"></i> Scholars</a>
+                <a href="{{ url('/records/is') }}" class="nav-link {{ request()->is('records/is*') ? 'active' : '' }}"><i class="bi bi-building"></i> Integrated School</a>
+                <a href="{{ url('/records/college') }}" class="nav-link {{ request()->is('records/college*') ? 'active' : '' }}"><i class="bi bi-mortarboard"></i> College</a>
+                <a href="{{ url('/records/scholars') }}" class="nav-link {{ request()->is('records/scholars*') ? 'active' : '' }}"><i class="bi bi-award"></i> Scholars</a>
+                <a href="{{ url('/records/graduate') }}" class="nav-link {{ request()->is('records/graduate*') ? 'active' : '' }}"><i class="bi bi-journal-bookmark"></i> Graduate Programs</a>
+                <a href="{{ url('/records/law') }}" class="nav-link {{ request()->is('records/law*') ? 'active' : '' }}"><i class="bi bi-bank2"></i> College of Law</a>
+                <a href="{{ url('/records/ipace') }}" class="nav-link {{ request()->is('records/ipace*') ? 'active' : '' }}"><i class="bi bi-laptop"></i> iPACE</a>
+                <a href="#" class="nav-link"><i class="bi bi-briefcase"></i> ETEEAP</a>
                 {{-- RBAC: wrap in @can('import-applicants') --}}
                 <a href="{{ url('/import') }}" class="nav-link {{ request()->is('import*') ? 'active' : '' }}"><i class="bi bi-cloud-arrow-up"></i> Import Data</a>
             </nav>
@@ -39,8 +43,8 @@
             {{-- RBAC: admin only --}}
             <div class="small fw-bold tracking-wide text-iaris-pale px-3 mb-1">SYSTEM</div>
             <nav class="nav nav-pills flex-column">
-                <a href="#" class="nav-link"><i class="bi bi-shield-lock"></i> Access Control</a>
-                <a href="#" class="nav-link"><i class="bi bi-person-badge"></i> Staff Accounts</a>
+                <a href="{{ url('/access-control') }}" class="nav-link {{ request()->is('access-control*') ? 'active' : '' }}"><i class="bi bi-shield-lock"></i> Access Control</a>
+                <a href="{{ url('/accounts') }}" class="nav-link {{ request()->is('accounts*') ? 'active' : '' }}"><i class="bi bi-person-gear"></i> User Accounts</a>
                 <a href="#" class="nav-link"><i class="bi bi-clipboard-data"></i> Audit Logs</a>
             </nav>
         </div>

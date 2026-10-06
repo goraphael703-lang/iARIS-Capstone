@@ -9,7 +9,16 @@
 
 <body>
     <div class="d-flex min-vh-100">
-        @include('layouts.partials.sidebar')
+        {{-- Each kind of user gets their own sidebar. The /lamp and /shs pages use theirs too,
+             so admins can preview them. (isLamp / isShsPrincipal are in app/Models/User.php)
+             TODO (RBAC): keep these users out of the admin pages. --}}
+        @if (request()->is('lamp*') || auth()->user()->isLamp())
+            @include('layouts.partials.sidebar-lamp')
+        @elseif (request()->is('shs*') || auth()->user()->isShsPrincipal())
+            @include('layouts.partials.sidebar-shs')
+        @else
+            @include('layouts.partials.sidebar')
+        @endif
 
         <main class="flex-grow-1 p-3 p-sm-4 p-lg-5" style="min-width: 0;">
             @include('layouts.partials.topbar')

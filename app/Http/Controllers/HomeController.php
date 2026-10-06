@@ -17,6 +17,15 @@ class HomeController extends Controller
      */
     public function index()
     {
+        // LAMP Office and SHS principal users have their own dashboards. Every sign-in
+        // ends up here (login -> splash -> /home), so this sends them to the right place.
+        if (auth()->user()->isLamp()) {
+            return redirect()->route('lamp.dashboard');
+        }
+        if (auth()->user()->isShsPrincipal()) {
+            return redirect()->route('shs.dashboard');
+        }
+
         return view('home', [
             'academicYear' => '2025–2026',
             'periodLabel' => 'Week of June 8–14, 2026',

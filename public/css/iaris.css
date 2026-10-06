@@ -65,6 +65,22 @@ body { background-color: #F3F6F5; }
     border-color: var(--iaris-green);
 }
 
+/* Pagination and underline tabs in the brand colour */
+.pagination {
+    --bs-pagination-color: var(--iaris-green);
+    --bs-pagination-hover-color: var(--iaris-green-hover);
+    --bs-pagination-focus-color: var(--iaris-green-hover);
+    --bs-pagination-focus-box-shadow: 0 0 0 0.25rem rgba(0, 103, 79, 0.15);
+    --bs-pagination-active-bg: var(--iaris-green);
+    --bs-pagination-active-border-color: var(--iaris-green);
+}
+
+.nav-underline {
+    --bs-nav-link-color: var(--bs-secondary-color);
+    --bs-nav-link-hover-color: var(--bs-body-color);
+    --bs-nav-underline-link-active-color: var(--iaris-green);
+}
+
 /* 2. Helpers Bootstrap doesn't have */
 .font-brand { font-family: 'Montserrat', sans-serif; }
 .tracking-wide { letter-spacing: 0.12em; }
@@ -111,3 +127,31 @@ body { background-color: #F3F6F5; }
 }
 
 .sidebar .nav-link:hover:not(.active) { background: rgba(255, 255, 255, 0.08); }
+
+/* 4. Printing an applicant profile: only the open drawer is printed */
+@media print {
+    body * { visibility: hidden; }
+    #applicantDrawer, #applicantDrawer * { visibility: visible; }
+    #applicantDrawer { position: absolute; inset: 0; width: 100% !important; transform: none !important; border: 0; }
+    #applicantDrawer .no-print, .offcanvas-backdrop { display: none !important; }
+}
+
+/* 5. Analytics charts: Chart.js needs a container with a fixed height */
+.chart-box { position: relative; height: 260px; }
+.chart-box-lg { height: 320px; }
+.chart-box-donut { max-width: 220px; height: 220px; }
+
+
+/* 6. Access Control matrix: keep the module names visible while the role columns scroll sideways */
+.matrix-table th:first-child,
+.matrix-table td:first-child { position: sticky; left: 0; z-index: 1; min-width: 10rem; box-shadow: inset -1px 0 0 var(--bs-border-color); }
+.matrix-table th:first-child,
+.matrix-table td:first-child:not(.bg-body-tertiary) { background-color: #fff; }
+.matrix-table .form-check-input { width: 2.25em; height: 1.25em; cursor: pointer; }
+/* Bootstrap draws the switch knob blue while focused; make it pale green instead */
+.form-switch .form-check-input:focus:not(:checked) {
+    --bs-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%237FC4AB'/%3e%3c/svg%3e");
+}
+
+/* 7. LAMP Scholars: a red left edge on rows that need review */
+.row-flag > td:first-child { border-left: 4px solid var(--bs-danger); }
