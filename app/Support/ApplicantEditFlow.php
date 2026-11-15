@@ -253,7 +253,14 @@ class ApplicantEditFlow
     {
         $normalize = fn ($value) => mb_strtolower(trim(preg_replace('/\s+/u', ' ', (string) $value)));
         $year = Applicant::max('school_year') ?? now()->year.'-'.(now()->year + 1);
-        $candidates = Applicant::where('school_year', $year)->where('level', $level)->whereNull('archived_at')->get();
+        // Exact-match pre-filter via the keyed name index (see Applicant::booted() /
+        // App\Support\NameSearchIndex) instead of loading and decrypting every applicant in
+        // the year/level to compare names in PHP - the same person this checks for is the
+        // only thing that can make this throw, so only an exact name hash match needs the
+        // (still PHP-side, since email/contact/program aren't indexed) closer comparison below.
+        $hash = NameSearchIndex::hash($validated['first'], $validated['last']);
+        $candidates = Applicant::where('school_year', $year)->where('level', $level)
+            ->whereNull('archived_at')->where('name_search_hash', $hash)->get();
         if ($includePending) {
             foreach (ReviewQueueItem::where('type', 'edit')->where('status', 'waiting')->get() as $item) {
                 $action = $item->pending_action;

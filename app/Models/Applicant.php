@@ -60,7 +60,9 @@ class Applicant extends Model
 
             // FR-09: applicant data encrypted at rest. Nothing filters on these with raw SQL
             // anywhere in the app (verified) - search is done client-side on the already-
-            // decrypted value. Fields used in real where()/groupBy() queries (level, sub_level,
+            // decrypted value, except name_search_hash below (a keyed index for exact name
+            // matching only - see App\Support\NameSearchIndex). Fields used in real
+            // where()/groupBy() queries (level, sub_level,
             // school_year, program_or_track, applicant_type, scholarship_type,
             // admission_test_status, application_status) are deliberately left out: Laravel's
             // encrypted cast is non-deterministic ciphertext, so a column with it can never be
@@ -76,5 +78,19 @@ class Applicant extends Model
             'contact_number' => 'encrypted',
             'address' => 'encrypted',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // Keeps the exact-match search index in sync with whatever first_name/last_name
+        // actually are, on every save - so nothing that creates or edits an applicant has to
+        // remember to maintain it separately. Uses nameParts()'s "effective" first name (it
+        // strips an embedded trailing initial, e.g. "Juan C." -> "Juan" + mi "C", for rows
+        // that predate middle_initial being its own field) so the index agrees with how
+        // ApplicantEditFlow::ensureNotDuplicate() already compares names.
+        static::saving(function (self $applicant) {
+            [$effectiveFirst] = \App\Support\ApplicantRecords::nameParts($applicant);
+            $applicant->name_search_hash = \App\Support\NameSearchIndex::hash($effectiveFirst, $applicant->last_name);
+        });
     }
 }
