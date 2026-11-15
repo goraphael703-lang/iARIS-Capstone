@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
+use App\Models\GeneratedReport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -47,20 +48,19 @@ class ReportExportController extends Controller
             $year = $data['year'] ?? null;
         }
         abort_if(array_sum(array_map(fn ($table) => count($table['rows']) * count($table['columns']), $tables)) > 150000, 422, 'Report is too large. Narrow the selected scope.');
-        $id = DB::transaction(function () use ($request, $data, $tables, $title, $recipient, $year) {
-            $id = DB::table('generated_reports')->insertGetId([
+        $saved = DB::transaction(function () use ($request, $data, $tables, $title, $recipient, $year) {
+            $saved = GeneratedReport::create([
                 'user_id' => $request->user()->id, 'generated_by_name' => $request->user()->name,
                 'template_key' => $data['key'] ?? null, 'title' => $title, 'recipient' => $recipient,
                 'period' => $data['period'], 'school_year' => $year, 'format' => $data['format'],
-                'snapshot' => json_encode($tables, JSON_THROW_ON_ERROR), 'created_at' => now(),
+                'snapshot' => $tables, 'created_at' => now(),
             ]);
-            AuditLog::record('report', 'Reports', 'Report Generated', "Generated report {$id}: {$title}; {$data['format']}; school year {$year}. Recipient label: {$recipient}. No publication performed.");
+            AuditLog::record('report', 'Reports', 'Report Generated', "Generated report {$saved->id}: {$title}; {$data['format']}; school year {$year}. Recipient label: {$recipient}. No publication performed.");
 
-            return $id;
+            return $saved;
         });
-        $saved = DB::table('generated_reports')->where('id', $id)->first();
 
-        return response()->json(['id' => $id, 'url' => route('reports.generated.download', $id), 'history' => self::shape($saved)]);
+        return response()->json(['id' => $saved->id, 'url' => route('reports.generated.download', $saved->id), 'history' => self::shape($saved)]);
     }
 
     public function preview(Request $request, string $key): JsonResponse
@@ -76,7 +76,7 @@ class ReportExportController extends Controller
 
     public static function history(): array
     {
-        return DB::table('generated_reports')->when(! auth()->user()->isAdmin(), fn ($q) => $q->where('user_id', auth()->id()))
+        return GeneratedReport::query()->when(! auth()->user()->isAdmin(), fn ($q) => $q->where('user_id', auth()->id()))
             ->latest('id')->limit(100)->get()->map(fn ($row) => self::shape($row))->all();
     }
 
@@ -86,20 +86,20 @@ class ReportExportController extends Controller
             'id' => $row->id, 'report' => $row->template_key ?? '', 'name' => $row->title,
             'meta' => 'Saved snapshot'.($row->school_year ? ' · SY '.$row->school_year : ''),
             'recipient' => $row->recipient, 'period' => $row->period, 'format' => $row->format,
-            'by' => $row->generated_by_name, 'at' => $row->created_at,
+            'by' => $row->generated_by_name, 'at' => (string) $row->created_at,
             'download' => route('reports.generated.download', $row->id),
         ];
     }
 
     public function download(Request $request, int $report)
     {
-        $saved = DB::table('generated_reports')->where('id', $report)->first();
+        $saved = GeneratedReport::find($report);
         abort_unless($saved, 404);
         abort_unless($request->user()->isAdmin() || $saved->user_id === $request->user()->id, 403);
         if (str_starts_with($saved->template_key ?? '', 'office-') && $request->has('format')) {
             $saved->format = $request->validate(['format' => 'required|in:XLSX,PDF,CSV'])['format'];
         }
-        $tables = json_decode($saved->snapshot, true, 512, JSON_THROW_ON_ERROR);
+        $tables = $saved->snapshot;
         AuditLog::record('export', 'Reports', $request->boolean('preview') ? 'Report Viewed' : 'Report Downloaded', ($request->boolean('preview') ? "Viewed report {$report}" : "Downloaded report {$report}").": {$saved->title}; {$saved->format}.");
         $filename = Str::slug($saved->title).'-'.($saved->school_year ?? 'custom');
         if ($request->boolean('preview')) {

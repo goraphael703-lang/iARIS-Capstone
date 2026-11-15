@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\GeneratedReport;
 use App\Models\RolePermission;
 use App\Models\User;
 use App\Support\AddressClassifier;
@@ -63,7 +64,7 @@ class OfficeScopeAndReportsTest extends OfficeTestCase
         $this->get('/records/college')->assertOk()->assertViewHas('rows', fn ($rows) => count($rows) === 1 && $rows[0]['id'] === $mine->reference_number);
         $this->getJson('/office-reports/preview/programs')->assertOk()->assertJsonPath('rows.0.0', 'BS Psychology')->assertJsonPath('rows.0.4', 1);
         $this->postJson('/office-reports', ['key' => 'programs', 'format' => 'XLSX', 'tables' => [['rows' => [['forged']]]]])->assertOk();
-        $snapshot = json_decode(DB::table('generated_reports')->latest('id')->value('snapshot'), true);
+        $snapshot = GeneratedReport::query()->latest('id')->first()->snapshot;
         $this->assertSame(1, $snapshot[0]['rows'][0][4]);
         $this->assertStringNotContainsString('forged', json_encode($snapshot));
     }

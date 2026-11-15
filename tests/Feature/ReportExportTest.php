@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Imports\ApplicantsImport;
 use App\Models\Applicant;
+use App\Models\GeneratedReport;
 use App\Models\ImportBatch;
 use App\Models\RolePermission;
 use App\Support\AdmissionStats;
@@ -52,8 +53,8 @@ class ReportExportTest extends OfficeTestCase
         $this->applicant(['school_year' => '2026-2027']);
         $this->applicant(['school_year' => '2026-2027']);
         $this->postJson('/analytics/reports/generate', ['key' => 'trends', 'format' => 'XLSX', 'period' => 'Current School Year', 'year' => '2026-2027'])->assertOk();
-        $saved = DB::table('generated_reports')->latest('id')->first();
-        $tables = json_decode($saved->snapshot, true);
+        $saved = GeneratedReport::query()->latest('id')->first();
+        $tables = $saved->snapshot;
         $ipace = collect($tables[0]['rows'])->first(fn ($r) => $r[0] === 'iPACE');
         $this->assertSame(['iPACE', '1', '2', '+1', '+100.0%'], $ipace);
         $this->postJson('/analytics/reports/generate', ['key' => 'trends', 'format' => 'PDF', 'period' => 'Previous School Year', 'year' => '2026-2027'])->assertOk();

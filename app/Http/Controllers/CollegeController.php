@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Applicant;
 use App\Models\AuditLog;
+use App\Models\GeneratedReport;
 use App\Support\AdmissionStats;
 use App\Support\ApplicantRecords;
 use App\Support\CollegeCatalog;
@@ -591,7 +592,7 @@ class CollegeController extends Controller
             // a 'paid' value (payments aren't tracked yet), so this is honestly empty outside Director.
             'paidRows' => array_values(array_map(fn ($a) => [$a['id'], $a['name'], $common['programs'][$a['program']]['name'] ?? $a['program_name'] ?? $a['program'], $a['paid']],
                 array_filter(auth()->user()->isDirector() ? array_merge(...array_values(self::directorApplicants())) : self::realApplicantsIn($common['programs'], $common['college']['code']), fn ($a) => $a['paid']))),
-            'history' => DB::table('generated_reports')->where('user_id', auth()->id())->where('template_key', 'like', 'office-%')->latest('id')->limit(100)->get()->map(fn ($row) => self::officeHistoryRow($row))->all(),
+            'history' => GeneratedReport::where('user_id', auth()->id())->where('template_key', 'like', 'office-%')->latest('id')->limit(100)->get()->map(fn ($row) => self::officeHistoryRow($row))->all(),
         ]);
     }
 
@@ -639,7 +640,7 @@ class CollegeController extends Controller
 
     private static function officeHistoryRow(object $row): array
     {
-        return ['id' => $row->id, 'template' => substr($row->template_key, 7), 'name' => $row->title, 'period' => $row->period, 'at' => $row->created_at, 'download' => route('office.reports.download', $row->id)];
+        return ['id' => $row->id, 'template' => substr($row->template_key, 7), 'name' => $row->title, 'period' => $row->period, 'at' => (string) $row->created_at, 'download' => route('office.reports.download', $row->id)];
     }
 
     public function previewOfficeReport(string $key)
@@ -651,19 +652,19 @@ class CollegeController extends Controller
     {
         $data = $request->validate(['key' => 'required|in:programs,paid,trend,funnel', 'format' => 'required|in:XLSX,PDF,CSV']);
         $table = $this->scopedReport($data['key']);
-        $id = DB::transaction(function () use ($request, $data, $table) {
-            $id = DB::table('generated_reports')->insertGetId([
+        $saved = DB::transaction(function () use ($request, $data, $table) {
+            $saved = GeneratedReport::create([
                 'user_id' => $request->user()->id, 'generated_by_name' => $request->user()->name,
                 'template_key' => 'office-'.$data['key'], 'title' => $table['title'], 'recipient' => $request->user()->roleInfo()[0].' (self)',
                 'period' => 'AY '.$table['year'], 'school_year' => $table['year'], 'format' => $data['format'],
-                'snapshot' => json_encode([['title' => $table['title'], 'columns' => $table['head'], 'rows' => $table['rows']]], JSON_THROW_ON_ERROR), 'created_at' => now(),
+                'snapshot' => [['title' => $table['title'], 'columns' => $table['head'], 'rows' => $table['rows']]], 'created_at' => now(),
             ]);
-            AuditLog::record('report', 'Reports', 'Office Report Generated', 'Generated report '.$id.': '.$table['title'].'. Saved snapshot for the assigned scope.');
+            AuditLog::record('report', 'Reports', 'Office Report Generated', 'Generated report '.$saved->id.': '.$table['title'].'. Saved snapshot for the assigned scope.');
 
-            return $id;
+            return $saved;
         });
 
-        return response()->json(['history' => self::officeHistoryRow(DB::table('generated_reports')->where('id', $id)->first())]);
+        return response()->json(['history' => self::officeHistoryRow($saved)]);
     }
 
     public function downloadOfficeReport(Request $request, int $report)
@@ -671,7 +672,7 @@ class CollegeController extends Controller
         $user = $request->user();
         abort_if(($user->isDeanOrChair() || $user->isPrincipalOffice()) && ! $user->canAccess('reports'), 403, 'Your role does not have access to this module.');
         abort_unless($user->isAdmin() || $user->isDeanOrChair() || $user->isPrincipalOffice() || $user->isDirector(), 403);
-        $saved = DB::table('generated_reports')->where('id', $report)->first();
+        $saved = GeneratedReport::find($report);
         abort_unless($saved && str_starts_with($saved->template_key ?? '', 'office-'), 404);
 
         return app(ReportExportController::class)->download($request, $report);
