@@ -43,6 +43,8 @@ class ReviewQueueItem extends Model
         return [
             'submitted_at' => 'datetime',
             'reviewed_at' => 'datetime',
+            // The applicant's name, shown as the card title while this item is waiting.
+            'subject' => 'encrypted',
             // Encrypted at rest: these hold proposed applicant names/contact details before
             // they're approved, so they need the same protection as the applicants table
             // itself (see Applicant::casts()). Same caveat applies: nothing can query inside

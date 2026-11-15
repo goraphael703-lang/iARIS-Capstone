@@ -62,6 +62,9 @@ class AuditLogController extends Controller
             'at' => $log->created_at->toIso8601String(), 'ip' => $log->ip_address,
             'title' => $log->title, 'details' => $log->details ?? '',
             'description' => $log->description, 'diff' => $log->diff ?? [],
+            // Resolved live from the applicants table (not stored here) for whoever already
+            // has Audit Logs access - the entry itself only ever records the reference number.
+            'applicantName' => $log->applicant ? trim("{$log->applicant->last_name}, {$log->applicant->first_name}") : null,
         ];
     }
 
@@ -93,9 +96,9 @@ class AuditLogController extends Controller
                 fclose($stream);
             }, 'iaris-audit-logs-'.now()->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
         }
-        $paginator = $query->latest()->orderByDesc('id')->paginate(10);
+        $paginator = $query->with('applicant')->latest()->orderByDesc('id')->paginate(10);
         if ($paginator->currentPage() > $paginator->lastPage()) {
-            $paginator = $query->paginate(10, ['*'], 'page', $paginator->lastPage());
+            $paginator = $query->with('applicant')->paginate(10, ['*'], 'page', $paginator->lastPage());
         }
         $people = User::whereIn('id', AuditLog::select('user_id')->whereNotNull('user_id')->distinct())->get()->mapWithKeys(fn ($u) => [(string) $u->id => ['name' => $u->displayName(), 'role' => $u->roleInfo()[0], 'tone' => 'primary', 'ip' => '']]);
         $logs = $paginator->getCollection()->map(fn ($log) => self::shape($log))->values();

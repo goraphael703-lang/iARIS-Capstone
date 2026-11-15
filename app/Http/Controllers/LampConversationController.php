@@ -46,7 +46,7 @@ class LampConversationController extends Controller
                 'reason' => $data['reason'], 'status' => 'waiting',
             ]);
             $this->addMessage($request, $item, $data['text']);
-            AuditLog::record('create', 'LAMP', 'LAMP Request Created', "Request {$item->id} for {$applicant->reference_number}: {$data['reason']}", $request->user()->roleInfo()[0]);
+            AuditLog::record('create', 'LAMP', 'LAMP Request Created', "Request {$item->id} for {$applicant->reference_number}: {$data['reason']}", $request->user()->roleInfo()[0], null, $applicant->id);
 
             return $item;
         });

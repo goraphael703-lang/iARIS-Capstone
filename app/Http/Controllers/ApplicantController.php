@@ -138,9 +138,10 @@ class ApplicantController extends Controller
             'edit',
             $module,
             'Record Edited',
-            "Updated applicant details for **{$name}**",
+            "Updated applicant details for **{$applicant->reference_number}**",
             null,
             array_map(fn ($c) => ['field' => $c[0], 'before' => $c[1], 'after' => $c[2]], $diff) ?: null,
+            $applicant->id,
         );
 
         return response()->json(['ok' => true]);
@@ -162,7 +163,7 @@ class ApplicantController extends Controller
 
         ApplicantEditFlow::applyDestroy($applicant);
 
-        AuditLog::record('delete', $module, 'Applicant Removed', "Removed applicant **{$name}** ({$refNumber})");
+        AuditLog::record('delete', $module, 'Applicant Removed', "Removed applicant **{$refNumber}**", null, null, $applicant->id);
 
         return response()->json(['ok' => true]);
     }
@@ -182,7 +183,7 @@ class ApplicantController extends Controller
 
         ApplicantEditFlow::applyRestore($applicant);
 
-        AuditLog::record('edit', $module, 'Applicant Restored', "Restored applicant **{$name}** ({$applicant->reference_number})");
+        AuditLog::record('edit', $module, 'Applicant Restored', "Restored applicant **{$applicant->reference_number}**", null, null, $applicant->id);
 
         return response()->json(['ok' => true]);
     }
@@ -218,9 +219,10 @@ class ApplicantController extends Controller
             'edit',
             $module,
             'Exam Result Updated',
-            "Updated exam result for **{$name}** ({$applicant->reference_number})",
+            "Updated exam result for **{$applicant->reference_number}**",
             null,
             array_map(fn ($c) => ['field' => $c[0], 'before' => $c[1], 'after' => $c[2]], $diff),
+            $applicant->id,
         );
 
         $reservationPaid = DB::table('payments')
@@ -263,7 +265,7 @@ class ApplicantController extends Controller
             'pending_action' => ['action' => $action, 'payload' => $payload],
         ]);
 
-        AuditLog::record('edit', $module, $title, "{$request->user()->name} submitted a change for **{$subject}** — sent to Review Queue as **{$item->rq_number}**");
+        AuditLog::record('edit', $module, $title, "{$request->user()->name} submitted a change for **{$item->ref}** — sent to Review Queue as **{$item->rq_number}**", null, null, $applicant?->id);
 
         return response()->json(['ok' => true, 'review' => true, 'rq_number' => $item->rq_number]);
     }

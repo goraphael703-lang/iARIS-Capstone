@@ -100,7 +100,7 @@ class ReviewQueueController extends Controller
 
             $item->update(['status' => 'approved', 'reviewed_by' => $request->user()->id, 'reviewed_at' => now()]);
 
-            AuditLog::record('edit', $item->type === 'lamp' ? 'LAMP' : $item->unit, 'Review Queue Item Approved', "Approved **{$item->rq_number}**: {$item->title} — {$item->subject} ({$item->ref})", $request->user()->roleInfo()[0], $item->changes);
+            AuditLog::record('edit', $item->type === 'lamp' ? 'LAMP' : $item->unit, 'Review Queue Item Approved', "Approved **{$item->rq_number}**: {$item->title} — {$item->ref}", $request->user()->roleInfo()[0], $item->changes, $item->applicant_id);
         }, 3);
 
         return response()->json(['ok' => true]);
@@ -118,8 +118,8 @@ class ReviewQueueController extends Controller
                 'reviewed_at' => now(), 'review_reason' => $validated['reason'],
             ]);
             AuditLog::record('edit', $item->type === 'lamp' ? 'LAMP' : $item->unit, 'Review Queue Item Sent Back',
-                "Sent back **{$item->rq_number}**: {$item->title} — {$item->subject} ({$item->ref}). Reason: {$validated['reason']}",
-                $request->user()->roleInfo()[0], $item->changes);
+                "Sent back **{$item->rq_number}**: {$item->title} — {$item->ref}. Reason: {$validated['reason']}",
+                $request->user()->roleInfo()[0], $item->changes, $item->applicant_id);
         });
 
         return response()->json(['ok' => true]);

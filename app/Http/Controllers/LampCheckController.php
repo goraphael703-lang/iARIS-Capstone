@@ -54,8 +54,8 @@ class LampCheckController extends Controller
                 ]],
             ]);
             AuditLog::record('edit', 'LAMP', 'LAMP Check Submitted for Review',
-                "Submitted {$item->rq_number} for {$name} ({$applicant->reference_number}): {$before} → {$after}.",
-                $request->user()->roleInfo()[0], $item->changes);
+                "Submitted {$item->rq_number} for {$applicant->reference_number}: {$before} → {$after}.",
+                $request->user()->roleInfo()[0], $item->changes, $applicant->id);
 
             return $item;
         });
