@@ -106,4 +106,43 @@ class ImportAndIpaceTest extends OfficeTestCase
         $this->assertSame('ipace', AdmissionLevelClassifier::classify('iPACE', '')['level']);
         $this->assertSame('eteeap', AdmissionLevelClassifier::classify('iPACE / ETEEAP', '')['level']);
     }
+
+    // Panel revision #7: "all predefined validation errors detected before approval - test a
+    // documented set of valid and invalid records." TC-05 (ApplicantsImport::model()) defines
+    // exactly three: a missing APP. NO., a blank/unrecognized SEX, and a College-level row
+    // with no section header to classify it under. Each is exercised here on its own, with
+    // the rest of that row otherwise valid, and checked against its exact reported reason -
+    // not just that *an* error was counted, which the row-errors test above already covers.
+    public function test_all_three_predefined_validation_errors_are_detected_and_reported(): void
+    {
+        $this->actingAs($this->office('admin'));
+
+        // 1. Missing APP. NO. (column 1)
+        $this->uploadRows([['IPACE'], $this->row(1, [1 => ''])]);
+        $batch = ImportBatch::latest('id')->first();
+        $this->assertSame(1, $batch->error_count);
+        $this->assertStringContainsString('Missing APP. NO.', $batch->errors[0]['reason']);
+        $this->assertSame(0, Applicant::count());
+
+        // 2. Blank/unrecognized SEX (column 10)
+        $this->uploadRows([['IPACE'], $this->row(2, [10 => ''])]);
+        $batch = ImportBatch::latest('id')->first();
+        $this->assertSame(1, $batch->error_count);
+        $this->assertStringContainsString('SEX is blank or not recognized', $batch->errors[0]['reason']);
+        $this->assertSame(0, Applicant::count());
+
+        // 3. A College-level row with no section header above it at all (the default
+        // classification is 'college', and there's been no header to say which one).
+        $this->uploadRows([$this->row(3)]);
+        $batch = ImportBatch::latest('id')->first();
+        $this->assertSame(1, $batch->error_count);
+        $this->assertStringContainsString('No section header', $batch->errors[0]['reason']);
+        $this->assertSame(0, Applicant::count());
+
+        // A row with none of these problems is unaffected - confirms the checks above are
+        // actually targeted at the broken field, not rejecting the row for some other reason.
+        $this->uploadRows([['IPACE'], $this->row(4)]);
+        $this->assertSame(0, ImportBatch::latest('id')->first()->error_count);
+        $this->assertSame(1, Applicant::count());
+    }
 }
