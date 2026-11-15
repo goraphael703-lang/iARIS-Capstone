@@ -200,8 +200,11 @@ class ScholarController extends Controller
             ->whereNull('archived_at')
             ->where('school_year', $schoolYear ?? Applicant::max('school_year') ?? now()->year.'-'.(now()->year + 1))->get();
         $checks = LampScholarRecord::whereIn('applicant_id', $applicants->pluck('id'))->get()->keyBy('applicant_id');
+        // Same rule as ApplicantRecords::forLevel(): LAMP's job is eligibility checking, not
+        // contacting applicants directly (that's IATO's), so it isn't an editor-only exemption.
+        $mask = ApplicantRecords::shouldMask();
 
-        return $applicants->map(function (Applicant $a) use ($date, $statusLabels, $checks) {
+        return $applicants->map(function (Applicant $a) use ($date, $statusLabels, $checks, $mask) {
             [$first, $mi] = ApplicantRecords::nameParts($a);
             $check = $checks->get($a->id);
             $decision = in_array($check?->decision, ['yes', 'no'], true) ? $check->decision : null;
@@ -226,9 +229,9 @@ class ScholarController extends Controller
                 'updated_label' => $date($a->updated_at, 'M j, g:i A'),
                 'dob_label' => $date($a->date_of_birth ?? null, 'F j, Y'),
                 'gender' => $a->gender,
-                'email' => $a->email,
-                'contact' => $a->contact_number,
-                'address' => $a->address,
+                'email' => $mask ? ApplicantRecords::maskEmail($a->email) : $a->email,
+                'contact' => $mask ? ApplicantRecords::maskContact($a->contact_number) : $a->contact_number,
+                'address' => $mask ? ApplicantRecords::maskAddress($a->address) : $a->address,
                 'exam' => $a->admission_test_status,
                 'exam_label' => self::EXAM_LABELS[$a->admission_test_status][1] ?? '—',
                 'exam_tone' => self::EXAM_LABELS[$a->admission_test_status][0] ?? 'secondary',

@@ -368,6 +368,11 @@ class CollegeController extends Controller
         };
 
         $paid = ApplicantRecords::paidFees('reservation_fee');
+        // Same rule as ApplicantRecords::forLevel(): full contact detail is an editor's
+        // (Admin, IATO Staff) job, not a Program Chair's. This method builds its own rows
+        // straight from the model instead of going through ApplicantRecords, so it has to
+        // apply the same masking itself rather than inheriting it.
+        $mask = ApplicantRecords::shouldMask();
 
         return Applicant::where('level', $level)->where('school_year', self::schoolYears()[3])->whereNull('archived_at')
             ->get()
@@ -383,9 +388,9 @@ class CollegeController extends Controller
                 'updated' => optional($a->updated_at)->format('M j, g:i A'),
                 'dob' => optional($a->date_of_birth)->format('F j, Y'),
                 'gender' => $a->gender === 'male' ? 'Male' : 'Female',
-                'email' => $a->email,
-                'phone' => $a->contact_number,
-                'address' => $a->address,
+                'email' => $mask ? ApplicantRecords::maskEmail($a->email) : $a->email,
+                'phone' => $mask ? ApplicantRecords::maskContact($a->contact_number) : $a->contact_number,
+                'address' => $mask ? ApplicantRecords::maskAddress($a->address) : $a->address,
                 'exam' => null,
                 'paid' => isset($paid[$a->id]) ? (string) ($paid[$a->id][1] ?? 'Paid; date not recorded') : null,
             ])

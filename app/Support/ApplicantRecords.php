@@ -83,7 +83,7 @@ class ApplicantRecords
     // the day-to-day job of a Dean, Program Chair, Principal, Director, etc. is reviewing
     // status and numbers, not contacting applicants directly (that's IATO's). Registrar
     // already gets none of these fields at all (see RegistrarData), which this doesn't change.
-    private static function shouldMask(): bool
+    public static function shouldMask(): bool
     {
         $user = auth()->user();
 
@@ -103,7 +103,7 @@ class ApplicantRecords
         ]);
     }
 
-    private static function maskEmail(?string $email): ?string
+    public static function maskEmail(?string $email): ?string
     {
         if (! $email || ! str_contains($email, '@')) {
             return $email;
@@ -114,7 +114,7 @@ class ApplicantRecords
         return substr($local, 0, 1).'***@'.substr($domain, 0, 1).'***'.$tld;
     }
 
-    private static function maskContact(?string $contact): ?string
+    public static function maskContact(?string $contact): ?string
     {
         if (! $contact) {
             return $contact;
@@ -124,7 +124,7 @@ class ApplicantRecords
         return '••• ••• '.substr($digits, -3);
     }
 
-    private static function maskAddress(?string $address): ?string
+    public static function maskAddress(?string $address): ?string
     {
         if (! $address) {
             return $address;
