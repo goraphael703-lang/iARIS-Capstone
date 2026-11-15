@@ -40,6 +40,7 @@
                 $link('Import Data', 'bi-cloud-arrow-up', '/import', 'import*', $user->canAccess('import')),
                 $link('Review Queue', 'bi-list-check', '/review-queue', 'review-queue*', $user->isAdmin(), $user->isAdmin() ? \App\Http\Controllers\ReviewQueueController::waitingCount() : 0),
                 $link('Audit Logs', 'bi-clipboard-data', '/audit-logs', 'audit-logs*', $user->canAccess('audit')),
+                $link('Archiving', 'bi-archive', '/admin/archive', 'admin/archive*', $user->isAdmin()),
             ]],
             ['group' => 'Access & Security', 'icon' => 'bi-shield-lock', 'items' => [
                 $link('Access Control', 'bi-shield-check', '/access-control', 'access-control*', $user->isAdmin()),
@@ -63,6 +64,7 @@
                 $link('Review Queue', 'bi-list-check', '/review-queue', 'review-queue*', true, \App\Http\Controllers\ReviewQueueController::waitingCount()),
                 $link('Access Control', 'bi-shield-check', '/access-control', 'access-control*'),
                 $link('User Accounts', 'bi-person-gear', '/accounts', 'accounts*', true, \App\Models\AccessRequest::waitingCount()),
+                $link('Archiving', 'bi-archive', '/admin/archive', 'admin/archive*'),
             ];
         }
     }

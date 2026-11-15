@@ -6,6 +6,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AiChatController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\ApplicantController;
+use App\Http\Controllers\ArchiveSettingsController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CollegeController;
 use App\Http\Controllers\CollegeRecordController;
@@ -104,6 +105,13 @@ Route::post('/review-queue/{item}/send-back', [ReviewQueueController::class, 'se
 // IATO Staff: their own edits and imports in the Review Queue
 Route::get('/submissions', [SubmissionsController::class, 'index'])->middleware('auth')->name('submissions');
 Route::get('/succession', [SuccessionController::class, 'index'])->middleware(['auth', 'admin'])->name('succession');
+
+// Archiving settings (panel revision #6): eligibility rules, retention periods, bulk archive
+// with a preview, and permanent deletion as its own, later-eligible action. Admin only.
+Route::get('/admin/archive', [ArchiveSettingsController::class, 'index'])->middleware(['auth', 'admin'])->name('admin.archive');
+Route::put('/admin/archive', [ArchiveSettingsController::class, 'update'])->middleware(['auth', 'admin']);
+Route::post('/admin/archive/run', [ArchiveSettingsController::class, 'archiveEligible'])->middleware(['auth', 'admin'])->name('admin.archive.run');
+Route::delete('/admin/archive/{applicant:reference_number}', [ArchiveSettingsController::class, 'destroyPermanently'])->middleware(['auth', 'admin']);
 
 Route::get('/import/{batch}', [ImportController::class, 'results'])->middleware(['auth', 'module:import']);
 
