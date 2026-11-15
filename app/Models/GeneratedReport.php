@@ -8,6 +8,11 @@ class GeneratedReport extends Model
 {
     public const UPDATED_AT = null;
 
+    // No updated_at at all, and created_at has its own DB default (useCurrent()) - Eloquent's
+    // usual auto-timestamping would otherwise silently overwrite an explicitly passed
+    // created_at (there's never a reason to pass one outside a test, but it should still work).
+    public $timestamps = false;
+
     protected $fillable = [
         'user_id',
         'generated_by_name',
@@ -18,6 +23,7 @@ class GeneratedReport extends Model
         'school_year',
         'format',
         'snapshot',
+        'created_at',
     ];
 
     protected function casts(): array
