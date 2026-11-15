@@ -62,6 +62,8 @@ class AdmissionsFolderImportTest extends OfficeTestCase
         $count = Applicant::count();
         $batch = ImportBatch::sole();
         $this->assertSame('completed', $batch->status);
+        $this->assertSame('folder', $batch->source);
+        $this->assertNotNull($batch->processing_ms);
         $this->assertSame($user->id, $batch->uploaded_by);
         $this->assertSame($user->id, AuditLog::where('action', 'import')->latest('id')->first()->user_id);
         $this->assertFileExists($this->folder.'/processed/applicants.xlsx');

@@ -109,7 +109,7 @@ class ImportAdmissionsFolder extends Command
             if ($existing) {
                 $this->info('Already received: '.basename($path).' (batch #'.$existing->id.').');
             } else {
-                $result = $imports->import($file, $year, $user, $hash);
+                $result = $imports->import($file, $year, $user, $hash, 'folder');
                 $this->info('Batch #'.$result['batch']->id.($result['review'] ? ' awaiting approval.' : ' completed.'));
             }
         } catch (\Throwable $exception) {

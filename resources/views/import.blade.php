@@ -178,11 +178,14 @@
                         <span class="icon-circle rounded-3 bg-{{ $tone }}-subtle text-{{ $tone }}-emphasis d-flex align-items-center justify-content-center flex-shrink-0"><i class="bi {{ $icon }}" aria-hidden="true"></i></span>
                         <span class="overflow-hidden">
                             <span class="d-block small fw-bold text-truncate">Batch #{{ $batch->id }} · {{ $batch->original_filename }}</span>
-                            <span class="d-block small text-body-secondary">By {{ $batch->uploader ?? 'Unknown user' }} · {{ \Illuminate\Support\Carbon::parse($batch->created_at)->format('M j, Y · g:i A') }}</span>
+                            <span class="d-block small text-body-secondary">By {{ $batch->uploader ?? 'Unknown user' }} · {{ \Illuminate\Support\Carbon::parse($batch->created_at)->format('M j, Y · g:i A') }} · {{ $batch->source === 'folder' ? 'Folder watch' : 'Manual upload' }}</span>
                             <span class="badge rounded-pill bg-{{ $tone }}-subtle text-{{ $tone }}-emphasis mt-1">{{ $label }}</span>
                             <span class="d-block small text-body-secondary">{{ number_format($batch->active_count) }} active · {{ number_format($batch->saved_count - $batch->active_count) }} archived</span>
                             @if ($batch->error_count)
                                 <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis mt-1">{{ $batch->error_count }} skipped</span>
+                            @endif
+                            @if ($batch->processing_ms !== null)
+                                <span class="badge rounded-pill bg-body-tertiary text-body-secondary border mt-1">{{ $batch->processing_ms >= 1000 ? number_format($batch->processing_ms / 1000, 1) . 's' : $batch->processing_ms . 'ms' }} to process</span>
                             @endif
                         </span>
                     </a>

@@ -51,7 +51,10 @@ class ImportAndIpaceTest extends OfficeTestCase
         $this->uploadRows($rows);
         $this->assertSame(4000, Applicant::count());
         $this->assertSame(8000, DB::table('payments')->count());
-        $this->assertSame(0, ImportBatch::latest('id')->first()->error_count);
+        $batch = ImportBatch::latest('id')->first();
+        $this->assertSame(0, $batch->error_count);
+        // Panel revision #7's performance target: 4,000 applicant records within 30 seconds.
+        $this->assertLessThan(30000, $batch->processing_ms, "Import of 4,000 records took {$batch->processing_ms}ms, over the 30s target.");
         $this->assertSame(['college', 'eteeap', 'graduate_school', 'ipace', 'is', 'law'], Applicant::distinct()->orderBy('level')->pluck('level')->sort()->values()->all());
         $this->uploadRows($rows);
         $this->assertSame(4000, Applicant::count());

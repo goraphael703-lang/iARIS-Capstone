@@ -19,9 +19,15 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class AdmissionsImportService
 {
-    /** Shared by the upload controller and the local folder command. */
-    public function import(UploadedFile $file, string $schoolYear, User $user, ?string $sourceHash = null): array
+    /**
+     * Shared by the upload controller ($source = 'upload') and the local folder command
+     * ($source = 'folder'). $startedAt (microtime(true)) is when reading the file began -
+     * the upload controller sets it before validation, since that time counts too; the
+     * folder command sets it fresh each call, right before this.
+     */
+    public function import(UploadedFile $file, string $schoolYear, User $user, ?string $sourceHash = null, string $source = 'upload', ?float $startedAt = null): array
     {
+        $startedAt ??= microtime(true);
         if (! preg_match('/^\d{4}-\d{4}$/', $schoolYear) || (int) substr($schoolYear, 5) !== (int) substr($schoolYear, 0, 4) + 1) {
             throw ValidationException::withMessages(['school_year' => 'Enter consecutive years, for example 2025-2026.']);
         }
@@ -48,12 +54,14 @@ class AdmissionsImportService
         $batch = ImportBatch::create([
             'uploaded_by' => $user->id,
             'original_filename' => $file->getClientOriginalName(),
+            'source' => $source,
             'status' => 'processing',
             'source_hash' => $sourceHash,
         ]);
+        $elapsedMs = fn () => (int) round((microtime(true) - $startedAt) * 1000);
 
         try {
-            return DB::transaction(function () use ($file, $schoolYear, $user, $batch) {
+            return DB::transaction(function () use ($file, $schoolYear, $user, $batch, $elapsedMs) {
                 $batch->refresh();
                 $isStaff = $user->role === 'iato_staff' && ! $user->isAdmin();
 
@@ -67,11 +75,15 @@ class AdmissionsImportService
                 if ($isStaff) {
                     $decision = ApprovalPolicy::forImportBatch(count($import->errors));
                     if (! $decision['auto']) {
+                        // Still 'processing' (not resolved yet), but validation/parsing is
+                        // done - record how long that part took now.
+                        $batch->update(['processing_ms' => $elapsedMs()]);
+
                         return $this->stageImportForReview($user, $batch, $import, $schoolYear, $decision['rule']);
                     }
 
                     $rowCount = $this->commitPreviewRows($import->previewRows, $schoolYear, $batch);
-                    $batch->update(['status' => 'completed', 'row_count' => $rowCount, 'error_count' => 0, 'errors' => null]);
+                    $batch->update(['status' => 'completed', 'row_count' => $rowCount, 'error_count' => 0, 'errors' => null, 'processing_ms' => $elapsedMs()]);
                     CachedInsight::where('key', 'analytics')->delete();
                     AuditLog::record(
                         'import',
@@ -91,6 +103,7 @@ class AdmissionsImportService
                     'row_count' => $rowCount,
                     'error_count' => $errorCount,
                     'errors' => $import->errors ?: null,
+                    'processing_ms' => $elapsedMs(),
                 ]);
 
                 CachedInsight::where('key', 'analytics')->delete();

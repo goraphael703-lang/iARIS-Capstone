@@ -13,8 +13,10 @@ class ImportBatch extends Model
         'uploaded_by',
         'source_hash',
         'original_filename',
+        'source',
         'row_count',
         'error_count',
+        'processing_ms',
         'errors',
         'status',
     ];
