@@ -159,7 +159,7 @@ class CollegeController extends Controller
         $code = $user?->isPrincipal() ? 'IS' : ($user?->isDirector() ? 'IPACE' : ($user?->isGradChair() ? 'GRAD' : null));
         // An Assistant Principal: IS_GS, IS_JHS or IS_SHS, by the level they are assigned to
         if ($user?->isAssistantPrincipal()) {
-            $code = ['jhs' => 'IS_JHS', 'shs' => 'IS_SHS'][$user->assigned_sub_level] ?? 'IS_GS';
+            $code = ['jhs' => 'IS_JHS', 'shs' => 'IS_SHS'][$user->subLevelScope('is')[0] ?? $user->assigned_sub_level] ?? 'IS_GS';
         }
         $code ??= strtoupper((string) ($user?->assigned_college ?? $user?->department ?? ''));
         // A college can also be stored by its full name ("College of Law")

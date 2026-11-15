@@ -22,8 +22,15 @@ class ApplicantController extends Controller
     public function index()
     {
         $user = auth()->user();
-        if ($user->isDeanOrChair() && ! $user->isAdmin()) {
-            return redirect()->route('college.applicants');
+        // The master list holds every division, so only IATO (admins and IATO Staff) opens it. Everyone else goes to the
+        // applicants page of their own office, which is limited to their levels (user_level_assignments).
+        if (! $user->isAdmin() && $user->role !== 'iato_staff') {
+            return match (true) {
+                $user->isDeanOrChair() => redirect()->route('college.applicants'),
+                $user->isPrincipalOffice() => redirect()->route('principal.applicants'),
+                $user->role === 'registrar' => redirect()->route('registrar.dashboard'),
+                default => abort(403, 'Your role does not have access to the master applicants list.'),
+            };
         }
 
         return view('applicants.pipeline', [

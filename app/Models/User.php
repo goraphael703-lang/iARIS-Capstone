@@ -8,7 +8,10 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use App\Support\LevelAssignments;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
 #[Fillable(['name', 'email', 'password', 'department', 'status', 'role', 'assigned_college', 'assigned_program', 'assigned_level', 'assigned_sub_level', 'access_type'])]
@@ -35,6 +38,72 @@ class User extends Authenticatable
     /**
      * Which pages / sidebar a user gets. Used by the layout and HomeController.
      */
+    // Keep user_level_assignments in step whenever the role or the level changes (seeders, Account Management, sign-up).
+    protected static function booted(): void
+    {
+        static::saved(function (User $user) {
+            if (($user->wasRecentlyCreated || $user->wasChanged(['role', 'assigned_level', 'assigned_sub_level']))
+                && Schema::hasTable('user_level_assignments')) {
+                $user->syncLevelAssignments();
+            }
+        });
+    }
+
+    /** The school levels this user may see (user_level_assignments). */
+    public function levelAssignments(): HasMany
+    {
+        return $this->hasMany(UserLevelAssignment::class);
+    }
+
+    /** Rewrite the assignments from the role and assigned_level / assigned_sub_level. */
+    public function syncLevelAssignments(): void
+    {
+        $this->levelAssignments()->delete();
+        foreach (LevelAssignments::rowsFor((string) $this->role, $this->assigned_level, $this->assigned_sub_level) as [$level, $sub]) {
+            $this->levelAssignments()->create(['role' => $this->role, 'level' => $level, 'sub_level' => $sub]);
+        }
+        $this->unsetRelation('levelAssignments');
+    }
+
+    // The assignments as [[level, sub_level|null], ...]. Before the table is filled in, the old columns say the same.
+    private function assignmentRows(): array
+    {
+        if (! Schema::hasTable('user_level_assignments')) {
+            return LevelAssignments::rowsFor((string) $this->role, $this->assigned_level, $this->assigned_sub_level);
+        }
+
+        return $this->levelAssignments->map(fn ($a) => [$a->level, $a->sub_level])->all();
+    }
+
+    /** Tied to no level at all (admins, IATO Staff, the Executive Office, LAMP, TOIC): every level is open. */
+    public function hasAllLevels(): bool
+    {
+        return $this->assignmentRows() === [];
+    }
+
+    /** May this user see records of this level (is, college, graduate_school, law, ipace, eteeap)? */
+    public function canAccessLevel(string $level): bool
+    {
+        return $this->hasAllLevels() || collect($this->assignmentRows())->contains(fn ($row) => $row[0] === $level);
+    }
+
+    /**
+     * The sub-levels of a level this user may see: null = all of them, or e.g. ['grade_school'] / ['grade_school', 'jhs', 'shs'].
+     * An empty array means none (they have no assignment on that level).
+     */
+    public function subLevelScope(string $level = 'is'): ?array
+    {
+        if ($this->hasAllLevels()) {
+            return null;
+        }
+        $rows = collect($this->assignmentRows())->filter(fn ($row) => $row[0] === $level);
+        if ($rows->contains(fn ($row) => $row[1] === null)) {
+            return null;
+        }
+
+        return $rows->pluck(1)->unique()->values()->all();
+    }
+
     public function isLamp(): bool
     {
         return $this->role === 'lamp';

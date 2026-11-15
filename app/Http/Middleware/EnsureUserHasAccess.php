@@ -12,7 +12,7 @@ class EnsureUserHasAccess
     {
         $user = $request->user();
 
-        if ($user->assigned_level !== null && $user->assigned_level !== $level) {
+        if (! $user->canAccessLevel($level)) {
             abort(403, 'You do not have access to this level\'s data.');
         }
 
