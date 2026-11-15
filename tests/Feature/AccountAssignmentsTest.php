@@ -53,10 +53,21 @@ class AccountAssignmentsTest extends OfficeTestCase
         $data = $this->payload(['role' => 'assistant_principal', 'department' => 'Integrated School']);
         $this->actingAs($this->office('admin'))->postJson('/accounts', $data)
             ->assertUnprocessable()->assertJsonValidationErrors('assigned_sub_level');
-        $this->postJson('/accounts', $data + ['assigned_sub_level' => 'grade_school'])->assertOk();
+        $this->postJson('/accounts', $data + ['assigned_sub_level' => ['grade_school']])->assertOk();
         $user = User::where('email', $data['email'])->firstOrFail();
         $this->assertSame('is', $user->assigned_level);
         $this->assertSame('Grade School', $user->assistantLevel());
+    }
+
+    public function test_assistant_principal_can_be_assigned_more_than_one_level(): void
+    {
+        $data = $this->payload(['role' => 'assistant_principal', 'department' => 'Integrated School']);
+        $this->actingAs($this->office('admin'))
+            ->postJson('/accounts', $data + ['assigned_sub_level' => ['grade_school', 'jhs']])->assertOk();
+        $user = User::where('email', $data['email'])->firstOrFail();
+        $this->assertSame(['grade_school', 'jhs'], $user->assigned_sub_levels);
+        $this->assertSame('Grade School, Junior High', $user->assistantLevel());
+        $this->assertSame(['grade_school', 'jhs'], $user->subLevelScope('is'));
     }
 
     public function test_role_change_clears_old_assignments(): void

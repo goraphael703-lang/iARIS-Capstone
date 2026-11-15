@@ -278,8 +278,9 @@ class AccountController extends Controller
             'assignedCollege' => $user->assigned_college,
             'assignedProgram' => $user->assigned_program,
             'assignedSubLevel' => $user->assigned_sub_level,
+            'assignedSubLevels' => $user->assigned_sub_levels ?: ($user->assigned_sub_level ? [$user->assigned_sub_level] : []),
             'assignmentWarning' => $user->role !== 'admin' && (! in_array($user->department, AccountAssignments::DEPARTMENTS[$user->role] ?? [], true)
-                || ($user->role === 'assistant_principal' && ! isset(AccountAssignments::SUB_LEVELS[$user->assigned_sub_level]))
+                || ($user->role === 'assistant_principal' && collect($user->assigned_sub_levels ?: [$user->assigned_sub_level])->contains(fn ($s) => ! isset(AccountAssignments::SUB_LEVELS[$s])))
                 || ($user->role === 'program_chair' && $user->department !== 'Graduate Programs'
                     && ! in_array($user->assigned_program, ($programs ?? CollegeController::accountPrograms())[$user->department] ?? [], true))
                 || ($user->role === 'program_chair' && $user->department === 'Graduate Programs' && ! $user->isGradChair())

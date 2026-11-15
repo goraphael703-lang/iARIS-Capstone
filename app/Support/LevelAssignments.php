@@ -24,10 +24,14 @@ class LevelAssignments
     ];
 
     /**
-     * The assignments a role with this level and sub-level should have: [[level, sub_level|null], ...].
+     * The assignments a role with this level and sub-level(s) should have: [[level, sub_level|null], ...].
      * ('kindergarten' is the old name for Preschool and is held under grade_school.)
+     *
+     * $subLevels (an Assistant Principal covering more than one) wins over the single
+     * $subLevel when given - $subLevel stays the "primary" one for pages that can only show
+     * one at a time (see CollegeController::college()), $subLevels is the full set.
      */
-    public static function rowsFor(string $role, ?string $level, ?string $subLevel): array
+    public static function rowsFor(string $role, ?string $level, ?string $subLevel, ?array $subLevels = null): array
     {
         if ($level === null || $level === '') {
             return [];
@@ -35,7 +39,14 @@ class LevelAssignments
         if ($level !== 'is') {
             return [[$level, null]];
         }
-        $sub = $subLevel === 'kindergarten' ? 'grade_school' : $subLevel;
+        $normalize = fn (string $s) => $s === 'kindergarten' ? 'grade_school' : $s;
+        if (! empty($subLevels)) {
+            $subs = collect($subLevels)->map($normalize)->filter(fn ($s) => in_array($s, self::IS_SUB_LEVELS, true))->unique()->values();
+            if ($subs->isNotEmpty()) {
+                return $subs->map(fn ($s) => ['is', $s])->all();
+            }
+        }
+        $sub = $subLevel === null ? null : $normalize($subLevel);
         if (in_array($sub, self::IS_SUB_LEVELS, true)) {
             return [['is', $sub]];
         }

@@ -36,9 +36,14 @@ class AccountAssignments
             'assigned_program' => $chair
                 ? ['required', 'string', 'max:150', Rule::in(CollegeController::accountPrograms()[$department] ?? [])]
                 : ['nullable', 'prohibited'],
+            // An Assistant Principal can cover more than one school level - sent as an array
+            // even for just one, so the form always has a single shape to submit.
             'assigned_sub_level' => $role === 'assistant_principal'
-                ? ['required', Rule::in(array_keys(self::SUB_LEVELS))]
+                ? ['required', 'array', 'min:1']
                 : ['nullable', 'prohibited'],
+            'assigned_sub_level.*' => $role === 'assistant_principal'
+                ? [Rule::in(array_keys(self::SUB_LEVELS))]
+                : ['prohibited'],
         ];
     }
 
@@ -60,9 +65,12 @@ class AccountAssignments
                 'director' => 'ipace',
                 default => null,
             },
+            // assigned_sub_level stays the single "primary" level (the first one picked) for
+            // pages that can only show one at a time; assigned_sub_levels is the full set.
             // Retain an existing SHS principal's scope when editing the same role.
-            'assigned_sub_level' => $role === 'assistant_principal' ? $data['assigned_sub_level']
+            'assigned_sub_level' => $role === 'assistant_principal' ? $data['assigned_sub_level'][0]
                 : ($role === 'principal' && $existing?->role === 'principal' ? $existing->assigned_sub_level : null),
+            'assigned_sub_levels' => $role === 'assistant_principal' ? array_values($data['assigned_sub_level']) : null,
             'access_type' => $role === 'iato_staff' ? 'editor' : 'viewer',
         ];
     }

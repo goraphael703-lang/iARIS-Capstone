@@ -1,10 +1,20 @@
 /* Shared role-dependent assignment controls for account creation, editing and approval. */
 window.IarisAccountAssignments = {
+    // Reads the selected values of a <select multiple> back out.
+    selectedValues(select) {
+        return Array.from(select.selectedOptions).map(o => o.value);
+    },
     bind(fields, choices) {
         const replaceOptions = (select, values, selected, placeholder) => {
-            select.replaceChildren(new Option(placeholder, ''));
+            const multiple = select.multiple;
+            select.replaceChildren(...(multiple ? [] : [new Option(placeholder, '')]));
             for (const [value, label] of Object.entries(values)) select.add(new Option(label, value));
-            select.value = Object.hasOwn(values, selected) ? selected : '';
+            if (multiple) {
+                const selectedSet = new Set(Array.isArray(selected) ? selected : selected ? [selected] : []);
+                for (const option of select.options) option.selected = selectedSet.has(option.value);
+            } else {
+                select.value = Object.hasOwn(values, selected) ? selected : '';
+            }
         };
         const refreshDetails = (selection = {}) => {
             const role = fields.role.value;
@@ -18,7 +28,7 @@ window.IarisAccountAssignments = {
             fields.subLevelField.classList.toggle('d-none', !assistant);
             fields.subLevel.required = assistant;
             fields.subLevel.disabled = !assistant;
-            replaceOptions(fields.subLevel, assistant ? choices.subLevels : {}, selection.subLevel, 'Select school level');
+            replaceOptions(fields.subLevel, assistant ? choices.subLevels : {}, selection.subLevel ?? selection.subLevels, 'Select school level');
         };
         const refresh = (selection = {}) => {
             const departments = choices.departments[fields.role.value] || [];

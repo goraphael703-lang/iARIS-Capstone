@@ -47,6 +47,19 @@
     </div>
     @endunless
 
+    {{-- An Assistant Principal covering more than one school level: switch which one this
+         page shows (it can only show one at a time) instead of always silently picking the
+         first. Only renders when there's more than one to switch between. --}}
+    @if (! empty($levelSwitch))
+    <div class="d-flex flex-wrap gap-2 mb-3 no-print" role="tablist" aria-label="School level">
+        @foreach ($levelSwitch as $option)
+            <a href="{{ request()->url() }}?level={{ $option['level'] }}"
+               class="btn btn-sm {{ $option['active'] ? 'btn-primary' : 'btn-light border' }} fw-semibold"
+               role="tab" aria-selected="{{ $option['active'] ? 'true' : 'false' }}">{{ $option['label'] }}</a>
+        @endforeach
+    </div>
+    @endif
+
     {{-- This week's summary --}}
     <section class="card border-0 shadow-sm rounded-4 bg-iaris text-white mb-4" aria-label="Summary">
         {{-- Text on the left, the big number on the right (stacked on phones) --}}

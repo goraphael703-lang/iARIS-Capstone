@@ -247,8 +247,9 @@
                             <div class="form-text">Only programs in the selected college are available. Graduate Programs chairs oversee Graduate Programs.</div>
                         </div>
                         <div class="col-12 d-none" id="userSubLevelField">
-                            <label for="userSubLevel" class="form-label small fw-bold">School level</label>
-                            <select class="form-select" id="userSubLevel"><option value="">Select school level</option></select>
+                            <label for="userSubLevel" class="form-label small fw-bold">School level(s)</label>
+                            <select class="form-select" id="userSubLevel" multiple size="3"></select>
+                            <div class="form-text">Hold Ctrl (Cmd on Mac) to select more than one.</div>
                         </div>
                         {{-- Edit only --}}
                         <div class="col-12" id="userStatusField">
@@ -736,7 +737,7 @@
                 field('userRole').value = user.role;
                 field('userStatus').value = user.status;
             }
-            assignmentForm.refresh(user ? {department: user.department, program: user.assignedProgram, subLevel: user.assignedSubLevel} : {});
+            assignmentForm.refresh(user ? {department: user.department, program: user.assignedProgram, subLevels: user.assignedSubLevels} : {});
             userModal.show();
         }
 
@@ -766,7 +767,7 @@
                 role: field('userRole').value,
                 department: field('userDepartment').value,
                 assigned_program: field('userRole').value === 'program_chair' ? (field('userProgram').value || null) : null,
-                assigned_sub_level: field('userRole').value === 'assistant_principal' ? field('userSubLevel').value : null,
+                assigned_sub_level: field('userRole').value === 'assistant_principal' ? window.IarisAccountAssignments.selectedValues(field('userSubLevel')) : null,
             };
 
             try {

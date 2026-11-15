@@ -14,7 +14,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
-#[Fillable(['name', 'email', 'password', 'department', 'status', 'role', 'assigned_college', 'assigned_program', 'assigned_level', 'assigned_sub_level', 'access_type'])]
+#[Fillable(['name', 'email', 'password', 'department', 'status', 'role', 'assigned_college', 'assigned_program', 'assigned_level', 'assigned_sub_level', 'assigned_sub_levels', 'access_type'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -32,6 +32,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'last_login_at' => 'datetime',
+            'assigned_sub_levels' => 'array',
         ];
     }
 
@@ -42,7 +43,7 @@ class User extends Authenticatable
     protected static function booted(): void
     {
         static::saved(function (User $user) {
-            if (($user->wasRecentlyCreated || $user->wasChanged(['role', 'assigned_level', 'assigned_sub_level']))
+            if (($user->wasRecentlyCreated || $user->wasChanged(['role', 'assigned_level', 'assigned_sub_level', 'assigned_sub_levels']))
                 && Schema::hasTable('user_level_assignments')) {
                 $user->syncLevelAssignments();
             }
@@ -55,11 +56,11 @@ class User extends Authenticatable
         return $this->hasMany(UserLevelAssignment::class);
     }
 
-    /** Rewrite the assignments from the role and assigned_level / assigned_sub_level. */
+    /** Rewrite the assignments from the role and assigned_level / assigned_sub_level(s). */
     public function syncLevelAssignments(): void
     {
         $this->levelAssignments()->delete();
-        foreach (LevelAssignments::rowsFor((string) $this->role, $this->assigned_level, $this->assigned_sub_level) as [$level, $sub]) {
+        foreach (LevelAssignments::rowsFor((string) $this->role, $this->assigned_level, $this->assigned_sub_level, $this->assigned_sub_levels) as [$level, $sub]) {
             $this->levelAssignments()->create(['role' => $this->role, 'level' => $level, 'sub_level' => $sub]);
         }
         $this->unsetRelation('levelAssignments');
@@ -69,7 +70,7 @@ class User extends Authenticatable
     private function assignmentRows(): array
     {
         if (! Schema::hasTable('user_level_assignments')) {
-            return LevelAssignments::rowsFor((string) $this->role, $this->assigned_level, $this->assigned_sub_level);
+            return LevelAssignments::rowsFor((string) $this->role, $this->assigned_level, $this->assigned_sub_level, $this->assigned_sub_levels);
         }
 
         return $this->levelAssignments->map(fn ($a) => [$a->level, $a->sub_level])->all();
@@ -308,11 +309,18 @@ class User extends Authenticatable
     }
 
     // "Grade School", "Junior High" or "Senior High" for an Assistant Principal
+    // All of an Assistant Principal's assigned sub-levels, joined ("Grade School, Junior
+    // High") - not just the primary one, so a two-level AP sees both named wherever this
+    // shows up (Settings' "Data scope", the sidebar role badge).
     public function assistantLevel(): ?string
     {
-        return $this->isAssistantPrincipal()
-            ? ['grade_school' => 'Grade School', 'kindergarten' => 'Grade School', 'jhs' => 'Junior High', 'shs' => 'Senior High'][$this->assigned_sub_level] ?? 'Grade School'
-            : null;
+        if (! $this->isAssistantPrincipal()) {
+            return null;
+        }
+        $labels = ['grade_school' => 'Grade School', 'kindergarten' => 'Grade School', 'jhs' => 'Junior High', 'shs' => 'Senior High'];
+        $subs = ! empty($this->assigned_sub_levels) ? $this->assigned_sub_levels : [$this->assigned_sub_level];
+
+        return collect($subs)->map(fn ($s) => $labels[$s] ?? null)->filter()->unique()->implode(', ') ?: 'Grade School';
     }
 
     // How the role is shown to people: [label, office, Bootstrap icon].

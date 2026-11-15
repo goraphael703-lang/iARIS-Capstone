@@ -140,8 +140,9 @@
                     <select class="form-select" id="approveProgram"><option value="">Select program</option></select>
                 </div>
                 <div class="mb-3 d-none" id="approveSubLevelField">
-                    <label for="approveSubLevel" class="form-label small fw-bold">School level</label>
-                    <select class="form-select" id="approveSubLevel"><option value="">Select school level</option></select>
+                    <label for="approveSubLevel" class="form-label small fw-bold">School level(s)</label>
+                    <select class="form-select" id="approveSubLevel" multiple size="3"></select>
+                    <div class="form-text">Hold Ctrl (Cmd on Mac) to select more than one.</div>
                 </div>
             </div>
             <div class="modal-footer border-0 px-4 pb-4 pt-0">
@@ -217,7 +218,7 @@
                         role: $('approveRole').value,
                         department: $('approveDept').value,
                         assigned_program: $('approveProgram').value || null,
-                        assigned_sub_level: $('approveSubLevel').value || null,
+                        assigned_sub_level: $('approveRole').value === 'assistant_principal' ? window.IarisAccountAssignments.selectedValues($('approveSubLevel')) : null,
                     }),
                 });
                 if (!res.ok) {

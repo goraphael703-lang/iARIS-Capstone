@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Applicant;
 use App\Models\AuditLog;
 use App\Models\GeneratedReport;
+use App\Models\User;
 use App\Support\AdmissionStats;
 use App\Support\ApplicantRecords;
 use App\Support\CollegeCatalog;
@@ -158,9 +159,13 @@ class CollegeController extends Controller
     {
         $user = auth()->user();
         $code = $user?->isPrincipal() ? 'IS' : ($user?->isDirector() ? 'IPACE' : ($user?->isGradChair() ? 'GRAD' : null));
-        // An Assistant Principal: IS_GS, IS_JHS or IS_SHS, by the level they are assigned to
+        // An Assistant Principal: IS_GS, IS_JHS or IS_SHS. Covering more than one level,
+        // ?level= switches between them (default: their first) - see common()'s 'levelSwitch'.
         if ($user?->isAssistantPrincipal()) {
-            $code = ['jhs' => 'IS_JHS', 'shs' => 'IS_SHS'][$user->subLevelScope('is')[0] ?? $user->assigned_sub_level] ?? 'IS_GS';
+            $assigned = $user->subLevelScope('is') ?: [$user->assigned_sub_level];
+            $requested = request()->query('level');
+            $sub = in_array($requested, $assigned, true) ? $requested : ($assigned[0] ?? $user->assigned_sub_level);
+            $code = ['jhs' => 'IS_JHS', 'shs' => 'IS_SHS'][$sub] ?? 'IS_GS';
         }
         $code ??= strtoupper((string) ($user?->assigned_college ?? $user?->department ?? ''));
         // A college can also be stored by its full name ("College of Law")
@@ -456,7 +461,26 @@ class CollegeController extends Controller
                 ? self::realPrograms($college['code'], $chairPrograms)
                 : self::realPrograms($college['code'], $college['programs']),
             'years' => array_map(fn ($year) => 'AY '.substr($year, 0, 4).'–'.substr($year, 7, 2), self::schoolYears()),
+            // An Assistant Principal covering more than one school level gets a switcher
+            // instead of the page silently always showing their first one.
+            'levelSwitch' => auth()->user()->isAssistantPrincipal() ? self::levelSwitchOptions(auth()->user(), $college['code']) : [],
         ];
+    }
+
+    // [[level, label, code, active], ...] for an Assistant Principal's own assigned sub-levels
+    // ('jhs' -> 'Junior High' -> 'IS_JHS'). Empty when they only have one - nothing to switch.
+    private static function levelSwitchOptions(User $user, string $activeCode): array
+    {
+        $assigned = $user->subLevelScope('is') ?: [];
+        if (count($assigned) < 2) {
+            return [];
+        }
+        $labels = ['grade_school' => 'Grade School', 'jhs' => 'Junior High', 'shs' => 'Senior High'];
+        $codes = ['grade_school' => 'IS_GS', 'jhs' => 'IS_JHS', 'shs' => 'IS_SHS'];
+
+        return collect($assigned)->map(fn ($sub) => [
+            'level' => $sub, 'label' => $labels[$sub] ?? $sub, 'active' => ($codes[$sub] ?? 'IS_GS') === $activeCode,
+        ])->values()->all();
     }
 
     // Briefing: this week's summary, tiles, "Needs your attention", programs at a glance, reports, Ask iARIS
