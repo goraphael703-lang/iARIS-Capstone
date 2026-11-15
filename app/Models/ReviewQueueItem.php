@@ -68,6 +68,17 @@ class ReviewQueueItem extends Model
         return 'RQ-'.strtoupper(bin2hex(random_bytes(8)));
     }
 
+    /**
+     * Whether an import-type Review Queue item already stages this batch. pending_action is
+     * encrypted (see casts() above), so this can't be a `where('pending_action->payload-
+     * >batch_id', ...)` SQL JSON-path query - it has to decrypt each candidate in PHP.
+     */
+    public static function hasPendingImportFor(int $batchId): bool
+    {
+        return self::where('type', 'import')->get()
+            ->contains(fn (self $item) => ($item->pending_action['payload']['batch_id'] ?? null) === $batchId);
+    }
+
     public function applicant(): BelongsTo
     {
         return $this->belongsTo(Applicant::class);

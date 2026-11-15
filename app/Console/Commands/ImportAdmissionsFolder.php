@@ -98,8 +98,7 @@ class ImportAdmissionsFolder extends Command
             $hash = hash('sha256', $year.':'.hash_file('sha256', $path));
             $existing = ImportBatch::where('source_hash', $hash)->first();
             if ($existing && $existing->status === 'processing') {
-                $hasReview = ReviewQueueItem::where('type', 'import')
-                    ->where('pending_action->payload->batch_id', $existing->id)->exists();
+                $hasReview = ReviewQueueItem::hasPendingImportFor($existing->id);
                 if (! $hasReview) {
                     // The command holds the folder lock. A previous process died before
                     // committing its transaction; release its reservation for a retry.

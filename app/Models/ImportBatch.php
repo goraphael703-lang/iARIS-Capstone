@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ImportBatch extends Model
 {
-    public $timestamps = false;
+    public const UPDATED_AT = null;
 
     protected $fillable = [
         'uploaded_by',
