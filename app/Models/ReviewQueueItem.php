@@ -43,11 +43,15 @@ class ReviewQueueItem extends Model
         return [
             'submitted_at' => 'datetime',
             'reviewed_at' => 'datetime',
-            'changes' => 'array',
-            'pending_action' => 'array',
-            'import_summary' => 'array',
-            'import_sample' => 'array',
-            'import_errors' => 'array',
+            // Encrypted at rest: these hold proposed applicant names/contact details before
+            // they're approved, so they need the same protection as the applicants table
+            // itself (see Applicant::casts()). Same caveat applies: nothing can query inside
+            // these columns with raw SQL - PHP already only ever reads them decrypted.
+            'changes' => 'encrypted:array',
+            'pending_action' => 'encrypted:array',
+            'import_summary' => 'encrypted:array',
+            'import_sample' => 'encrypted:array',
+            'import_errors' => 'encrypted:array',
         ];
     }
 

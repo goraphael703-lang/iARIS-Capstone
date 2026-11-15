@@ -11,7 +11,9 @@ class AuditLog extends Model
     public const UPDATED_AT = null;
 
     protected $casts = [
-        'diff' => 'array',
+        // Encrypted at rest: a diff's before/after values can be an applicant's name,
+        // contact number, address, etc. (same protection as Applicant::casts()).
+        'diff' => 'encrypted:array',
     ];
 
     protected static function booted(): void
