@@ -19,6 +19,15 @@ class LampRequest extends Model
         'status',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            // The applicant's name, snapshotted here for the LAMP conversation list - same
+            // protection as Applicant::casts().
+            'name' => 'encrypted',
+        ];
+    }
+
     public function applicant(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Applicant::class);
