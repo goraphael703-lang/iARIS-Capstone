@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\ReviewQueueItem;
 use App\Support\ApplicantEditFlow;
 use App\Support\ApplicantRecords;
+use App\Support\ApprovalPolicy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -80,10 +81,12 @@ class ApplicantController extends Controller
 
         ApplicantEditFlow::ensureNotDuplicate($validated, $level, true);
         $module = ApplicantEditFlow::moduleFor($level);
+        $diff = ApplicantEditFlow::diffForCreate($validated);
 
-        if ($this->needsReview($request)) {
+        $decision = $this->approvalDecision($request, 'create', $diff);
+        if ($decision['needsReview']) {
             return $this->stageForReview($request, null, $module, 'create', ['level' => $level, 'validated' => $validated],
-                ApplicantEditFlow::diffForCreate($validated), "{$validated['last']}, {$validated['first']}", 'New Applicant Submitted');
+                $diff, "{$validated['last']}, {$validated['first']}", 'New Applicant Submitted', $decision['rule']);
         }
 
         $applicant = ApplicantEditFlow::applyCreate($validated, $level);
@@ -128,8 +131,9 @@ class ApplicantController extends Controller
 
         $diff = ApplicantEditFlow::diffForUpdate($applicant, $validated);
 
-        if ($this->needsReview($request)) {
-            return $this->stageForReview($request, $applicant, $module, 'update', ['validated' => $validated], $diff, $name, 'Record Edit Requested');
+        $decision = $this->approvalDecision($request, 'update', $diff);
+        if ($decision['needsReview']) {
+            return $this->stageForReview($request, $applicant, $module, 'update', ['validated' => $validated], $diff, $name, 'Record Edit Requested', $decision['rule']);
         }
 
         ApplicantEditFlow::applyUpdate($applicant, $validated);
@@ -138,7 +142,7 @@ class ApplicantController extends Controller
             'edit',
             $module,
             'Record Edited',
-            "Updated applicant details for **{$applicant->reference_number}**",
+            "Updated applicant details for **{$applicant->reference_number}**".($decision['rule'] ? " ({$decision['rule']})" : ''),
             null,
             array_map(fn ($c) => ['field' => $c[0], 'before' => $c[1], 'after' => $c[2]], $diff) ?: null,
             $applicant->id,
@@ -156,9 +160,11 @@ class ApplicantController extends Controller
         $name = "{$applicant->last_name}, {$applicant->first_name}";
         $refNumber = $applicant->reference_number;
         $module = ApplicantEditFlow::moduleFor($applicant->level);
+        $diff = [['Status', 'Active', 'Archived']];
 
-        if ($this->needsReview($request)) {
-            return $this->stageForReview($request, $applicant, $module, 'destroy', [], [['Status', 'Active', 'Archived']], $name, 'Applicant Removal Requested');
+        $decision = $this->approvalDecision($request, 'destroy', $diff);
+        if ($decision['needsReview']) {
+            return $this->stageForReview($request, $applicant, $module, 'destroy', [], $diff, $name, 'Applicant Removal Requested', $decision['rule']);
         }
 
         ApplicantEditFlow::applyDestroy($applicant);
@@ -176,9 +182,11 @@ class ApplicantController extends Controller
 
         $module = ApplicantEditFlow::moduleFor($applicant->level);
         $name = "{$applicant->last_name}, {$applicant->first_name}";
+        $diff = [['Status', 'Archived', 'Active']];
 
-        if ($this->needsReview($request)) {
-            return $this->stageForReview($request, $applicant, $module, 'restore', [], [['Status', 'Archived', 'Active']], $name, 'Applicant Restore Requested');
+        $decision = $this->approvalDecision($request, 'restore', $diff);
+        if ($decision['needsReview']) {
+            return $this->stageForReview($request, $applicant, $module, 'restore', [], $diff, $name, 'Applicant Restore Requested', $decision['rule']);
         }
 
         ApplicantEditFlow::applyRestore($applicant);
@@ -209,8 +217,9 @@ class ApplicantController extends Controller
         $name = "{$applicant->last_name}, {$applicant->first_name}";
         $diff = [['Exam Result', ApplicantRecords::EXAM_STATUSES[$before] ?? $before, ApplicantRecords::EXAM_STATUSES[$validated['admission_test_status']]]];
 
-        if ($this->needsReview($request)) {
-            return $this->stageForReview($request, $applicant, $module, 'exam_status', ['validated' => $validated], $diff, $name, 'Exam Result Change Requested');
+        $decision = $this->approvalDecision($request, 'exam_status', $diff);
+        if ($decision['needsReview']) {
+            return $this->stageForReview($request, $applicant, $module, 'exam_status', ['validated' => $validated], $diff, $name, 'Exam Result Change Requested', $decision['rule']);
         }
 
         ApplicantEditFlow::applyExamStatus($applicant, $validated['admission_test_status']);
@@ -240,13 +249,22 @@ class ApplicantController extends Controller
         ]);
     }
 
-    /** IATO Staff who aren't (currently) an admin: their edits wait for the Super Admin, not applied directly. */
-    protected function needsReview(Request $request): bool
+    /**
+     * IATO Staff who aren't (currently) an admin: App\Support\ApprovalPolicy decides whether
+     * this specific change (by action + diff) auto-applies or waits for the Super Admin - an
+     * admin's own edits always apply directly either way, unaffected by the policy.
+     */
+    protected function approvalDecision(Request $request, string $action, array $diff): array
     {
-        return $request->user()->role === 'iato_staff' && ! $request->user()->isAdmin();
+        if ($request->user()->role !== 'iato_staff' || $request->user()->isAdmin()) {
+            return ['needsReview' => false, 'rule' => null];
+        }
+        $decision = ApprovalPolicy::forApplicantAction($action, $diff);
+
+        return ['needsReview' => ! $decision['auto'], 'rule' => $decision['rule']];
     }
 
-    protected function stageForReview(Request $request, ?Applicant $applicant, string $module, string $action, array $payload, array $diff, string $subject, string $title)
+    protected function stageForReview(Request $request, ?Applicant $applicant, string $module, string $action, array $payload, array $diff, string $subject, string $title, ?string $approvalRule = null)
     {
         $item = ReviewQueueItem::create([
             'rq_number' => ReviewQueueItem::nextRqNumber(),
@@ -262,6 +280,7 @@ class ApplicantController extends Controller
             'submitted_at' => now(),
             'status' => 'waiting',
             'changes' => $diff,
+            'approval_rule' => $approvalRule,
             'pending_action' => ['action' => $action, 'payload' => $payload],
         ]);
 

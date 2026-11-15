@@ -28,6 +28,7 @@ class ReviewQueueItem extends Model
         'submitted_at',
         'status',
         'note',
+        'approval_rule',
         'changes',
         'pending_action',
         'import_summary',

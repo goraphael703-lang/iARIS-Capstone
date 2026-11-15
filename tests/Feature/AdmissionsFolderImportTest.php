@@ -45,10 +45,10 @@ class AdmissionsFolderImportTest extends OfficeTestCase
         return $user;
     }
 
-    private function incoming(string $name = 'applicants.xlsx'): string
+    private function incoming(string $name = 'applicants.xlsx', string $fixture = 'dummy-applicants-valid.xlsx'): string
     {
         $path = $this->folder.'/incoming/'.$name;
-        copy(base_path('tests/fixtures/import/dummy-applicants-valid.xlsx'), $path);
+        copy(base_path('tests/fixtures/import/'.$fixture), $path);
 
         return $path;
     }
@@ -71,20 +71,40 @@ class AdmissionsFolderImportTest extends OfficeTestCase
         $this->assertSame($count, Applicant::count());
     }
 
-    public function test_staff_import_waits_for_approval_and_is_not_staged_twice(): void
+    // ApprovalPolicy only auto-applies a staff import with zero error rows (see
+    // forImportBatch()) - a file with an error row always needs manual review, regardless of
+    // how many rows are otherwise fine.
+    public function test_staff_import_with_errors_waits_for_approval_and_is_not_staged_twice(): void
     {
         $user = $this->configureUser('iato_staff');
-        $this->incoming();
+        $this->incoming('applicants.xlsx', 'dummy-applicants-mixed-errors.xlsx');
         $this->artisan('admissions:import-folder')->assertSuccessful();
         $this->assertSame(0, Applicant::count());
         $item = ReviewQueueItem::sole();
         $this->assertSame('waiting', $item->status);
         $this->assertSame($user->id, $item->submitted_by);
-        $this->incoming('renamed.xlsx');
+        $this->assertStringContainsString('manual review', $item->approval_rule);
+        $this->incoming('renamed.xlsx', 'dummy-applicants-mixed-errors.xlsx');
         $this->artisan('admissions:import-folder')->assertSuccessful();
         $this->assertSame(1, ReviewQueueItem::count());
         $this->actingAs($this->office('admin'))->postJson('/review-queue/'.$item->rq_number.'/approve')->assertOk();
         $this->assertGreaterThan(0, Applicant::count());
+    }
+
+    // Panel revision #5: a batch that passes validation (zero error rows) auto-applies for
+    // IATO Staff instead of waiting on a Super Admin - the duplicate-file and import-
+    // permission checks it still goes through are what the panel's table means by the
+    // other two conditions ("duplicate checks" and "access checks").
+    public function test_staff_import_with_no_errors_auto_applies(): void
+    {
+        $this->configureUser('iato_staff');
+        $this->incoming();
+        $this->artisan('admissions:import-folder')->assertSuccessful();
+        $this->assertGreaterThan(0, Applicant::count());
+        $this->assertSame(0, ReviewQueueItem::count());
+        $batch = ImportBatch::sole();
+        $this->assertSame('completed', $batch->status);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'import', 'title' => 'Data Import']);
     }
 
     public function test_disabled_and_unauthorized_importers_leave_files_untouched(): void

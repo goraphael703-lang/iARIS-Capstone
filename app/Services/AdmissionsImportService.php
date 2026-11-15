@@ -9,8 +9,10 @@ use App\Models\CachedInsight;
 use App\Models\ImportBatch;
 use App\Models\ReviewQueueItem;
 use App\Models\User;
+use App\Support\ApprovalPolicy;
 use App\Support\ImportSchoolYear;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
@@ -53,14 +55,32 @@ class AdmissionsImportService
         try {
             return DB::transaction(function () use ($file, $schoolYear, $user, $batch) {
                 $batch->refresh();
-                $needsReview = $user->role === 'iato_staff' && ! $user->isAdmin();
+                $isStaff = $user->role === 'iato_staff' && ! $user->isAdmin();
 
+                // A staff import always previews first now (nothing committed yet) so
+                // ApprovalPolicy can see the real error count before deciding - an admin's
+                // own import still commits directly as it always has.
                 $import = new ApplicantsImport($batch, $schoolYear);
-                $import->preview = $needsReview;
+                $import->preview = $isStaff;
                 Excel::import($import, $file);
 
-                if ($needsReview) {
-                    return $this->stageImportForReview($user, $batch, $import, $schoolYear);
+                if ($isStaff) {
+                    $decision = ApprovalPolicy::forImportBatch(count($import->errors));
+                    if (! $decision['auto']) {
+                        return $this->stageImportForReview($user, $batch, $import, $schoolYear, $decision['rule']);
+                    }
+
+                    $rowCount = $this->commitPreviewRows($import->previewRows, $schoolYear, $batch);
+                    $batch->update(['status' => 'completed', 'row_count' => $rowCount, 'error_count' => 0, 'errors' => null]);
+                    CachedInsight::where('key', 'analytics')->delete();
+                    AuditLog::record(
+                        'import',
+                        'Import Data',
+                        'Data Import',
+                        "Imported **{$batch->original_filename}** — **{$rowCount} records** added ({$decision['rule']})",
+                    );
+
+                    return ['batch' => $batch, 'review' => null];
                 }
 
                 $rowCount = Applicant::where('imported_batch_id', $batch->id)->count();
@@ -97,7 +117,7 @@ class AdmissionsImportService
      * batch's id travel inside the Review Queue item itself (pending_action), replayed through
      * ApplicantsImport::commitRow() by ReviewQueueController::approve() once a Super Admin signs off.
      */
-    protected function stageImportForReview(User $user, ImportBatch $batch, ApplicantsImport $import, string $schoolYear): array
+    protected function stageImportForReview(User $user, ImportBatch $batch, ApplicantsImport $import, string $schoolYear, ?string $approvalRule = null): array
     {
         $new = count(array_filter($import->previewRows, fn ($r) => $r['is_new']));
         $total = count($import->previewRows);
@@ -117,6 +137,7 @@ class AdmissionsImportService
             'import_summary' => ['total' => $total + count($import->errors), 'new' => $new, 'updated' => $total - $new, 'errors' => count($import->errors)],
             'import_sample' => collect($import->previewRows)->take(4)->map(fn ($r) => [$r['name'], $r['program'], $r['is_new'] ? 'New' : 'Updated'])->all(),
             'import_errors' => collect($import->errors)->map(fn ($e) => [$e['row'], $e['name'], '—', '—', $e['reason']])->all(),
+            'approval_rule' => $approvalRule,
             'pending_action' => ['action' => 'commit_import', 'payload' => ['batch_id' => $batch->id, 'school_year' => $schoolYear, 'rows' => $import->previewRows]],
         ]);
 
@@ -128,5 +149,27 @@ class AdmissionsImportService
         );
 
         return ['batch' => $batch, 'review' => ['rq_number' => $item->rq_number, 'count' => $total]];
+    }
+
+    /**
+     * Replays already-validated preview rows (collected with ApplicantsImport::$preview =
+     * true, never written to the database yet) through ApplicantsImport::commitRow(). Shared
+     * by an auto-approved staff import here and an admin-approved staged one
+     * (ReviewQueueController::commitImport()), so both commit identically.
+     */
+    public function commitPreviewRows(array $rows, string $schoolYear, ImportBatch $batch): int
+    {
+        foreach ($rows as $row) {
+            ApplicantsImport::commitRow(
+                $row['fields'],
+                $row['applied_at'] ? Carbon::parse($row['applied_at']) : null,
+                $row['fees'],
+                $batch->id,
+                $schoolYear,
+                $row['fields']['level'],
+            );
+        }
+
+        return count($rows);
     }
 }

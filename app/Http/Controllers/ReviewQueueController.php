@@ -2,16 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Imports\ApplicantsImport;
 use App\Models\Applicant;
 use App\Models\AuditLog;
 use App\Models\CachedInsight;
 use App\Models\ImportBatch;
 use App\Models\LampScholarRecord;
 use App\Models\ReviewQueueItem;
+use App\Services\AdmissionsImportService;
 use App\Support\ApplicantEditFlow;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class ReviewQueueController extends Controller
@@ -65,6 +64,8 @@ class ReviewQueueController extends Controller
             'status' => $item->status,
             'reviewedAt' => $item->reviewed_at?->format('Y-m-d H:i'),
             'note' => $item->note,
+            // Why App\Support\ApprovalPolicy routed this to manual review, not something the submitter wrote.
+            'approvalRule' => $item->approval_rule,
             'changes' => $item->changes ?? [],
             'summary' => $item->import_summary ?? ['total' => 0, 'new' => 0, 'updated' => 0, 'errors' => 0],
             'sample' => $item->import_sample ?? [],
@@ -162,7 +163,7 @@ class ReviewQueueController extends Controller
         $record->save();
     }
 
-    /** Replays a staged import's validated rows (ApplicantsImport::commitRow(), same code the live path uses). */
+    /** Replays a staged import's validated rows via AdmissionsImportService::commitPreviewRows() - the same commit an auto-approved import uses. */
     protected function commitImport(array $payload): void
     {
         $batch = ImportBatch::find($payload['batch_id']);
@@ -170,18 +171,9 @@ class ReviewQueueController extends Controller
             return;
         }
 
-        foreach ($payload['rows'] as $row) {
-            ApplicantsImport::commitRow(
-                $row['fields'],
-                $row['applied_at'] ? Carbon::parse($row['applied_at']) : null,
-                $row['fees'],
-                $batch->id,
-                $payload['school_year'],
-                $row['fields']['level'],
-            );
-        }
+        $rowCount = app(AdmissionsImportService::class)->commitPreviewRows($payload['rows'], $payload['school_year'], $batch);
 
-        $batch->update(['status' => 'completed', 'row_count' => count($payload['rows'])]);
+        $batch->update(['status' => 'completed', 'row_count' => $rowCount]);
         CachedInsight::where('key', 'analytics')->delete();
     }
 }

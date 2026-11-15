@@ -274,6 +274,7 @@
                     <div class="col-6"><dt class="text-body-secondary fw-semibold">Submitted</dt><dd class="fw-bold mb-0">${when(q.at)}</dd></div>
                     <div class="col-12"><dt class="text-body-secondary fw-semibold">Unit</dt><dd class="fw-bold mb-0">${esc(q.unit)}</dd></div>
                     ${q.note ? `<div class="col-12"><dt class="text-body-secondary fw-semibold">Note from submitter</dt><dd class="mb-0 fst-italic">“${esc(q.note)}”</dd></div>` : ''}
+                    ${q.approvalRule ? `<div class="col-12"><dt class="text-body-secondary fw-semibold">Why this needs review</dt><dd class="mb-0">${esc(q.approvalRule)}</dd></div>` : ''}
                 </dl>`;
 
             if (q.type === 'import') {
