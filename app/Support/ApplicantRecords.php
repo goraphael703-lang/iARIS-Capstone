@@ -68,14 +68,71 @@ class ApplicantRecords
         $paid = self::paidFees('reservation_fee');
         $paidExam = self::paidFees('application_fee');
         $schoolYear = Applicant::max('school_year');
+        $mask = self::shouldMask();
 
         return Applicant::where('level', $level)
             ->whereNull('archived_at')
             ->when($schoolYear, fn ($q) => $q->where('school_year', $schoolYear))
             ->latest()
             ->get()
-            ->map(fn (Applicant $a) => self::shape($a, $paid[$a->id] ?? null, isset($paidExam[$a->id])))
+            ->map(fn (Applicant $a) => self::maybeMask(self::shape($a, $paid[$a->id] ?? null, isset($paidExam[$a->id])), $mask))
             ->all();
+    }
+
+    // Full contact detail is only something an editor (Admin, IATO Staff) genuinely needs -
+    // the day-to-day job of a Dean, Program Chair, Principal, Director, etc. is reviewing
+    // status and numbers, not contacting applicants directly (that's IATO's). Registrar
+    // already gets none of these fields at all (see RegistrarData), which this doesn't change.
+    private static function shouldMask(): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && ! $user->isAdmin() && $user->access_type !== 'editor';
+    }
+
+    private static function maybeMask(array $row, bool $mask): array
+    {
+        if (! $mask) {
+            return $row;
+        }
+
+        return array_merge($row, [
+            'email' => self::maskEmail($row['email']),
+            'contact' => self::maskContact($row['contact']),
+            'address' => self::maskAddress($row['address']),
+        ]);
+    }
+
+    private static function maskEmail(?string $email): ?string
+    {
+        if (! $email || ! str_contains($email, '@')) {
+            return $email;
+        }
+        [$local, $domain] = explode('@', $email, 2);
+        $tld = str_contains($domain, '.') ? substr($domain, strrpos($domain, '.')) : '';
+
+        return substr($local, 0, 1).'***@'.substr($domain, 0, 1).'***'.$tld;
+    }
+
+    private static function maskContact(?string $contact): ?string
+    {
+        if (! $contact) {
+            return $contact;
+        }
+        $digits = preg_replace('/\D/', '', $contact);
+
+        return '••• ••• '.substr($digits, -3);
+    }
+
+    private static function maskAddress(?string $address): ?string
+    {
+        if (! $address) {
+            return $address;
+        }
+
+        // Keeps city/province (after the first comma) since that's what a reviewer's
+        // actual job needs (see AddressClassifier) - masks only the street-level part.
+        return str_contains($address, ',') ? '•••'.strstr($address, ',') : '•••';
     }
 
     /** Applicant id => [amount, paid_at] for a paid fee ('reservation_fee' or 'application_fee'/exam fee). */
