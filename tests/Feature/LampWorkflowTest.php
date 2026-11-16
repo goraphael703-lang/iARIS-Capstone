@@ -28,6 +28,34 @@ class LampWorkflowTest extends OfficeTestCase
         $this->assertDatabaseHas('audit_logs', ['user_id' => $lamp->id, 'title' => 'LAMP Check Submitted for Review', 'ip_address' => '127.0.0.1']);
     }
 
+    /**
+     * The confirm step (LampCheckController::confirm()) had a working, tested endpoint but
+     * nothing in any view ever called it - "awaiting IATO confirmation" was a dead end.
+     * scholars/index.blade.php's drawer template now renders a Confirm button (hidden per
+     * row by its own script, based on that row's live status - not something a server-rendered
+     * assertion can see) for roles the confirm endpoint actually accepts, and carries the
+     * applicant's real numeric id, since the endpoint binds by id, not reference_number.
+     */
+    public function test_scholars_page_renders_the_confirm_control_only_for_roles_allowed_to_confirm(): void
+    {
+        $lamp = $this->office('lamp');
+        $admin = $this->office('admin');
+        $applicant = $this->applicant();
+
+        $this->actingAs($admin)->get('/records/scholars')->assertOk()
+            ->assertSee('id="lampConfirmBtn"', false)->assertSee('"applicantId":'.$applicant->id, false);
+
+        // The script references #lampConfirmBtn unconditionally (it's always safe to query for
+        // an element that may not exist), so check the rendered tag itself, not just the id text.
+        $this->actingAs($lamp)->get('/records/scholars')->assertOk()->assertDontSee('id="lampConfirmBtn"', false);
+
+        // And the endpoint it calls genuinely works end to end once there is something to confirm.
+        $item = $this->submit($lamp, $applicant);
+        $this->actingAs($admin)->postJson("/review-queue/{$item->rq_number}/approve")->assertOk();
+        $this->actingAs($admin)->postJson("/iato/lamp-checks/{$applicant->id}/confirm")->assertOk();
+        $this->assertDatabaseHas('lamp_scholar_records', ['applicant_id' => $applicant->id, 'iato_status' => 'confirmed']);
+    }
+
     public function test_send_back_leaves_the_decision_untouched_and_undo_needs_approval(): void
     {
         $lamp = $this->office('lamp');

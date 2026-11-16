@@ -99,6 +99,9 @@ class ScholarController extends Controller
             'lampThreads' => LampRequests::byScholar(),
             // Only IATO (admins and staff) can ask LAMP or reply; others can read the conversation
             'canMessageLamp' => $user->isAdmin() || $user->role === 'iato_staff',
+            // Same gate as LampCheckController::confirm() - only these accounts may finalize
+            // a LAMP decision the Review Queue already approved.
+            'canConfirmLamp' => $user->isAdmin() || ($user->role === 'iato_staff' && $user->access_type === 'editor' && $user->canAccess('edit')),
             // How your messages are signed, e.g. "Cruz, Jasmine · IATO Staff"
             'me' => ['name' => self::lastFirst($user->name), 'role' => $user->roleInfo()[0]],
 
@@ -213,6 +216,9 @@ class ScholarController extends Controller
 
             return [
                 'id' => $a->reference_number,
+                // The confirm endpoint binds by the applicant's numeric id, not its reference
+                // number - see routes/web.php's /iato/lamp-checks/{applicant}/confirm.
+                'applicantId' => $a->id,
                 'name' => trim("{$a->last_name}, {$first}".($mi ? ' '.$mi.'.' : '')),
                 'last' => $a->last_name, 'first' => $first, 'mi' => $mi,
                 'initials' => mb_substr($a->first_name, 0, 1).mb_substr($a->last_name, 0, 1),

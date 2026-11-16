@@ -210,6 +210,9 @@
                         <thead><tr><th class="bg-transparent">Field</th><th class="bg-transparent">IATO Record</th><th class="bg-transparent">LAMP Record</th></tr></thead>
                         <tbody><tr><td class="bg-transparent">Scholar Status</td><td class="bg-transparent fw-semibold">Yes</td><td class="bg-transparent fw-semibold" data-field="lamp_record" id="lampRecord"></td></tr></tbody>
                     </table>
+                    @if ($canConfirmLamp)
+                        <button type="button" class="btn btn-sm btn-primary fw-semibold mt-3 d-none" id="lampConfirmBtn"><i class="bi bi-check-lg me-1" aria-hidden="true"></i> Confirm LAMP's decision</button>
+                    @endif
                 </div>
                 {{-- Ask LAMP to check, or the conversation with LAMP (scholars/partials/ask-lamp) --}}
                 <div id="lampAsk"></div>
@@ -361,6 +364,28 @@
         document.querySelector('[data-show-review]')?.addEventListener('click', showReview);
         document.querySelector('[data-show-review]')?.addEventListener('keydown', e => { if (e.key === 'Enter') showReview(); });
 
+        // Finalizes a LAMP decision the Review Queue already approved - the one step that
+        // was otherwise unreachable from any page (see LampCheckController::confirm()).
+        document.getElementById('lampConfirmBtn')?.addEventListener('click', async (e) => {
+            if (!drawerScholar) return;
+            e.target.disabled = true;
+            try {
+                const csrf = document.querySelector('meta[name="csrf-token"]').content;
+                const response = await fetch(`/iato/lamp-checks/${drawerScholar.applicantId}/confirm`, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                });
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.message || 'Could not confirm this LAMP decision.');
+                }
+                location.reload();
+            } catch (error) {
+                alert(error.message || 'Could not confirm this LAMP decision.');
+                e.target.disabled = false;
+            }
+        });
+
         // ---- Export: the filtered rows as a CSV file ----
         document.getElementById('exportButton').addEventListener('click', () => {
             const params = queryParams(); params.delete('page'); params.set('export','csv'); window.location = location.pathname+'?'+params;
@@ -404,6 +429,7 @@
             document.getElementById('lampHeading').innerHTML = `<i class="bi ${card.icon} me-1" aria-hidden="true"></i>`;
             document.getElementById('lampHeading').append(card.heading);
             document.getElementById('lampRecord').className = `bg-transparent fw-semibold ${card.record}`;
+            document.getElementById('lampConfirmBtn')?.classList.toggle('d-none', s.lamp !== 'Awaiting IATO');
 
             renderTimeline(s);
             window.onScholarDrawer?.(s);   // Ask LAMP box (scholars/partials/ask-lamp)
