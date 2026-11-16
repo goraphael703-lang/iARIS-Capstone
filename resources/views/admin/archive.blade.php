@@ -102,23 +102,68 @@
         </div>
     </div>
 
-    {{-- ========== ARCHIVED RECORDS (restore / permanent delete) ========== --}}
+    {{-- ========== ARCHIVED BATCHES (restore / permanent delete, a whole import at once) ========== --}}
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <h2 class="fs-6 fw-bold mb-0">Archived batches</h2>
+            <p class="small text-body-secondary">Records archived from the same import, grouped so you can restore or permanently delete all of them in one action instead of one at a time.</p>
+
+            @if ($archivedBatches->isEmpty())
+                <div class="rounded-3 bg-body-tertiary border text-center text-body-secondary small py-4">
+                    <i class="bi bi-archive fs-4 d-block mb-1" aria-hidden="true"></i>
+                    No archived import batches yet.
+                </div>
+            @else
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead class="table-light"><tr class="small text-uppercase"><th>Import file</th><th>Archived records</th><th>Last archived</th><th class="text-end">Actions</th></tr></thead>
+                        <tbody>
+                            @foreach ($archivedBatches as $row)
+                                <tr>
+                                    <td class="small">{{ $row['filename'] }}</td>
+                                    <td class="small">{{ $row['archivedCount'] }}</td>
+                                    <td class="small">{{ $row['lastArchivedAt'] }}</td>
+                                    <td class="text-end">
+                                        <div class="d-inline-flex gap-1">
+                                            <form method="POST" action="{{ url('/admin/archive/batch/' . $row['batchId'] . '/restore') }}" onsubmit="return confirm('Restore all {{ $row['archivedCount'] }} record(s) from {{ $row['filename'] }}?');">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i> Restore all</button>
+                                            </form>
+                                            @if ($row['deletable'])
+                                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-kind="batch" data-id="{{ $row['batchId'] }}" data-name="all {{ $row['archivedCount'] }} record(s) from {{ $row['filename'] }}"><i class="bi bi-trash me-1" aria-hidden="true"></i> Delete all permanently</button>
+                                            @else
+                                                <span tabindex="0" title="Eligible for permanent deletion on {{ $row['deletableOn'] }}">
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" disabled><i class="bi bi-trash me-1" aria-hidden="true"></i> Delete all permanently</button>
+                                                </span>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+    </div>
+
+    {{-- ========== ARCHIVED RECORDS added individually (not via an import) ========== --}}
     <div class="card border-0 shadow-sm rounded-4">
         <div class="card-body p-4">
             <h2 class="fs-6 fw-bold mb-0">Archived records</h2>
-            <p class="small text-body-secondary">Restore returns a record to its normal list. Permanent deletion only becomes available once a record has passed the retention window above, and cannot be undone.</p>
+            <p class="small text-body-secondary">Records archived one at a time (not part of a bulk import). Restore returns a record to its normal list. Permanent deletion only becomes available once a record has passed the retention window above, and cannot be undone.</p>
 
-            @if ($archived->isEmpty())
+            @if ($archivedIndividual->isEmpty())
                 <div class="rounded-3 bg-body-tertiary border text-center text-body-secondary small py-4">
                     <i class="bi bi-archive fs-4 d-block mb-1" aria-hidden="true"></i>
-                    No archived records yet.
+                    No individually archived records.
                 </div>
             @else
                 <div class="table-responsive">
                     <table class="table align-middle mb-0">
                         <thead class="table-light"><tr class="small text-uppercase"><th>Reference</th><th>Applicant</th><th>Division</th><th>Archived</th><th class="text-end">Actions</th></tr></thead>
                         <tbody>
-                            @foreach ($archived as $row)
+                            @foreach ($archivedIndividual as $row)
                                 <tr>
                                     <td class="font-monospace small">{{ $row['ref'] }}</td>
                                     <td class="small">{{ $row['name'] }}</td>
@@ -131,7 +176,7 @@
                                                 <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i> Restore</button>
                                             </form>
                                             @if ($row['deletable'])
-                                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-ref="{{ $row['ref'] }}" data-name="{{ $row['name'] }}"><i class="bi bi-trash me-1" aria-hidden="true"></i> Delete permanently</button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-kind="applicant" data-id="{{ $row['ref'] }}" data-name="{{ $row['name'] }}"><i class="bi bi-trash me-1" aria-hidden="true"></i> Delete permanently</button>
                                             @else
                                                 <span tabindex="0" title="Eligible for permanent deletion on {{ $row['deletableOn'] }}">
                                                     <button type="button" class="btn btn-sm btn-outline-danger" disabled><i class="bi bi-trash me-1" aria-hidden="true"></i> Delete permanently</button>
@@ -144,23 +189,23 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="mt-3 d-flex justify-content-center">{{ $archived->links() }}</div>
+                <div class="mt-3 d-flex justify-content-center">{{ $archivedIndividual->links('pagination::bootstrap-5') }}</div>
             @endif
         </div>
     </div>
 
-    {{-- One confirm modal for permanent deletion, reused for every row --}}
+    {{-- One confirm modal for permanent deletion, reused for every row and every batch --}}
     <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalTitle" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <form class="modal-content border-0 rounded-4 overflow-hidden" id="deleteForm" method="POST" action="">
                 @csrf
                 @method('DELETE')
                 <div class="modal-header bg-danger text-white border-0 p-4">
-                    <h5 class="modal-title fw-bold" id="deleteModalTitle"><i class="bi bi-exclamation-triangle me-2" aria-hidden="true"></i>Permanently delete record</h5>
+                    <h5 class="modal-title fw-bold" id="deleteModalTitle"><i class="bi bi-exclamation-triangle me-2" aria-hidden="true"></i>Permanently delete</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <p>This permanently deletes <strong id="deleteModalName"></strong> (<span id="deleteModalRef" class="font-monospace"></span>). This cannot be undone and is logged to the Audit Logs.</p>
+                    <p>This permanently deletes <strong id="deleteModalName"></strong>. This cannot be undone and is logged to the Audit Logs.</p>
                     <label for="deleteConfirm" class="form-label small fw-bold text-uppercase text-body-secondary">Type <code>DELETE</code> to confirm</label>
                     <input type="text" class="form-control" id="deleteConfirm" name="confirm" autocomplete="off" required pattern="DELETE">
                 </div>
@@ -179,8 +224,10 @@
         deleteModalEl?.addEventListener('show.bs.modal', e => {
             const button = e.relatedTarget;
             document.getElementById('deleteModalName').textContent = button.dataset.name;
-            document.getElementById('deleteModalRef').textContent = button.dataset.ref;
-            document.getElementById('deleteForm').action = '{{ url('/admin/archive') }}/' + encodeURIComponent(button.dataset.ref);
+            const base = '{{ url('/admin/archive') }}';
+            document.getElementById('deleteForm').action = button.dataset.kind === 'batch'
+                ? base + '/batch/' + encodeURIComponent(button.dataset.id)
+                : base + '/' + encodeURIComponent(button.dataset.id);
             document.getElementById('deleteConfirm').value = '';
             document.getElementById('deleteSubmit').disabled = true;
         });

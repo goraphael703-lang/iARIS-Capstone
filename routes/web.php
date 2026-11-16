@@ -111,6 +111,10 @@ Route::get('/succession', [SuccessionController::class, 'index'])->middleware(['
 Route::get('/admin/archive', [ArchiveSettingsController::class, 'index'])->middleware(['auth', 'admin'])->name('admin.archive');
 Route::put('/admin/archive', [ArchiveSettingsController::class, 'update'])->middleware(['auth', 'admin']);
 Route::post('/admin/archive/run', [ArchiveSettingsController::class, 'archiveEligible'])->middleware(['auth', 'admin'])->name('admin.archive.run');
+// Batch-level restore/delete: a bulk import can be hundreds or thousands of rows, so these
+// act on every archived member of one import batch at once instead of one applicant at a time.
+Route::post('/admin/archive/batch/{batch}/restore', [ArchiveSettingsController::class, 'restoreBatch'])->middleware(['auth', 'admin']);
+Route::delete('/admin/archive/batch/{batch}', [ArchiveSettingsController::class, 'destroyBatchPermanently'])->middleware(['auth', 'admin']);
 Route::delete('/admin/archive/{applicant:reference_number}', [ArchiveSettingsController::class, 'destroyPermanently'])->middleware(['auth', 'admin']);
 
 Route::get('/import/{batch}', [ImportController::class, 'results'])->middleware(['auth', 'module:import']);
