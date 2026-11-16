@@ -13,12 +13,13 @@ class ArchiveSetting extends Model
         'updated_by',
     ];
 
-    // Singleton: one policy row for the whole system.
+    // Singleton: one policy row for the whole system. Defaults match DLSL's stated policy
+    // (no retention past one school year) - see the 2026_11_16_100000 migration.
     public static function current(): self
     {
         return static::query()->firstOrCreate(['id' => 1], [
-            'enrolled_after_years' => 3,
-            'not_enrolled_after_years' => 2,
+            'enrolled_after_years' => 1,
+            'not_enrolled_after_years' => 1,
             'delete_after_years' => 2,
         ]);
     }
