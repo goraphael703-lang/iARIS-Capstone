@@ -36,6 +36,10 @@
         'name' => $name,
         'allowed' => $d['records'] && (! isset($recordPermission[$name]) || $user->canAccess($recordPermission[$name])),
     ]);
+    // The button itself only shows if the user can actually add somewhere - each Records
+    // page already hides its own Add button when $canEdit is false (see applicants/index.blade.php);
+    // this keeps the pipeline page's button consistent with that instead of always showing it.
+    $canAddAnywhere = in_array(true, $canEditExam, true) || $user->canEdit('scholars');
 @endphp
 
 @include('partials.admin-workspace', ['workspacePage' => 'pipeline-page', 'workspaceGroup' => 'Main', 'workspaceLabel' => 'Applicants'])
@@ -74,7 +78,9 @@
             </div>
             <div class="d-flex gap-2 ms-md-auto">
                 <button type="button" class="btn btn-light border fw-semibold" id="exportCsv"><i class="bi bi-download me-1" aria-hidden="true"></i> Export</button>
-                <button type="button" class="btn btn-primary fw-semibold" data-bs-toggle="modal" data-bs-target="#addModal"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i> Add Applicant</button>
+                @if ($canAddAnywhere)
+                    <button type="button" class="btn btn-primary fw-semibold" data-bs-toggle="modal" data-bs-target="#addModal"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i> Add Applicant</button>
+                @endif
             </div>
         </div>
 
@@ -117,7 +123,6 @@
                     <option value="new">Newest first</option>
                     <option value="az">Name A–Z</option>
                     <option value="za">Name Z–A</option>
-                    <option value="status">Status</option>
                 </select>
             </div>
         </div>
@@ -325,12 +330,11 @@
         }
 
         function visibleRows() {
-            const order = { Pending: 0, 'For Exam': 1, Passed: 2, 'Not Qualified': 3, Paid: 4 }, sort = $('sort').value;
+            const sort = $('sort').value;
             return baseRows()
                 .filter(a => state.status === 'All' || a.status === state.status)
                 .sort((x, y) => sort === 'az' ? x.name.localeCompare(y.name)
                     : sort === 'za' ? y.name.localeCompare(x.name)
-                    : sort === 'status' ? (order[x.status] - order[y.status]) || y.applied.localeCompare(x.applied)
                     : y.applied.localeCompare(x.applied));
         }
 

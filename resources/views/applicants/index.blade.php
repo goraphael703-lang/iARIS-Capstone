@@ -123,7 +123,7 @@
             ],
             'labels' => ['group' => 'Program', 'groupAll' => 'All Programs', 'program' => 'Delivery Mode', 'programAll' => 'All Delivery Modes'],
             'groupBadge' => true,
-            'programBadges' => ['Online' => ['info', 'bi-wifi'], 'Blended' => ['secondary', 'bi-layers']],
+            'programBadges' => ['Online' => ['info', 'bi-wifi'], 'Blended' => ['secondary', 'bi-layers'], 'Face to face' => ['warning', 'bi-person-video2']],
             'statuses' => ['Pending', 'For Exam', 'Paid'],
             'programField' => 'Program',
             'drawerExtras' => [
@@ -228,7 +228,7 @@
     $categoryField = $scope === 'ipace' || ($scope === 'college' && $isDean) ? 'program' : 'group';
     $categoryLabel = match ($scope) { 'college' => $isDean ? 'Program' : 'College', 'is' => 'Level', 'ipace' => 'Delivery Mode', default => 'Program' };
     $categoryOptions = collect($scope === 'college' && $isDean ? [] : ($groupOrder ?? []))->merge($rows->pluck($categoryField))->filter(fn ($v) => $v && $v !== '—')->unique()->values();
-    if ($scope === 'ipace') $categoryOptions = collect(['Online', 'Blended']);
+    if ($scope === 'ipace') $categoryOptions = collect(['Online', 'Blended', 'Face to face']);
     $recordColumnCount = count($recordColumns) + ($isRegistrar ? 5 : 6);
 
 @endphp

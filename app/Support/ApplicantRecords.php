@@ -238,7 +238,7 @@ class ApplicantRecords
                 'group' => self::initials($program),
                 'program_label' => $program,
                 // The import captures learning modality, but not employment details.
-                'program' => $a->learning_modalities ?: '—',
+                'program' => self::deliveryMode($a->learning_modalities),
                 'year' => $a->year_level ?: '—',
                 'working' => '—',
                 'employer' => '—',
@@ -319,6 +319,21 @@ class ApplicantRecords
             stripos($program, 'Master of Laws') !== false => 'LLM',
             stripos($program, 'Juridical') !== false, stripos($program, 'Judicial') !== false => 'JSD',
             default => self::initials($program),
+        };
+    }
+
+    // iPACE's delivery mode column: normalizes the raw import text (e.g. "ONLINE LEARNING")
+    // to a clean label shared by the records page's filter pills, its dropdown, and its badges -
+    // all three need to agree on the same value for the pills to actually filter anything.
+    private static function deliveryMode(?string $modality): string
+    {
+        $modality = strtoupper((string) $modality);
+
+        return match (true) {
+            str_contains($modality, 'ONLINE') => 'Online',
+            str_contains($modality, 'BLENDED') => 'Blended',
+            str_contains($modality, 'FACE') => 'Face to face',
+            default => '—',
         };
     }
 

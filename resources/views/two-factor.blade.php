@@ -112,7 +112,9 @@
                         <button type="button" class="btn btn-primary btn-lg w-100 fw-semibold" data-go="2">
                             Set Up Two-Factor Authentication <i class="bi bi-arrow-right ms-1"></i>
                         </button>
-                        <a href="{{ url('/home') }}" class="btn btn-link w-100 mt-2 text-body-secondary text-decoration-none">Not now — back to iARIS</a>
+                        @unless (session('mfaRequired') && ! $confirmed)
+                            <a href="{{ url('/home') }}" class="btn btn-link w-100 mt-2 text-body-secondary text-decoration-none">Not now — back to iARIS</a>
+                        @endunless
                     </section>
 
                     {{-- STEP 2: Get the app --}}

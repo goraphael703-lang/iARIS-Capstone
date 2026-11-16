@@ -66,6 +66,7 @@
                     <option value="">All delivery modes</option>
                     <option>Online</option>
                     <option>Blended</option>
+                    <option>Face to face</option>
                 </select>
             @endif
         </div>
@@ -74,7 +75,7 @@
         <div class="director-category-pills d-flex flex-wrap align-items-center gap-2 border-bottom" id="categoryPills" role="group" aria-label="{{ $isEteeap ? 'Program' : 'Delivery mode' }}">
             <span class="small fw-semibold text-body-secondary">{{ $isEteeap ? 'Program' : 'Delivery Mode' }}:</span>
             <button class="btn btn-sm btn-primary" type="button" data-category="" aria-pressed="true">All</button>
-            @foreach ($isEteeap ? array_keys($unitPrograms) : ['Online', 'Blended'] as $category)
+            @foreach ($isEteeap ? array_keys($unitPrograms) : ['Online', 'Blended', 'Face to face'] as $category)
                 <button class="btn btn-sm btn-light border" type="button" data-category="{{ $category }}" aria-pressed="false">{{ $isEteeap ? $unitPrograms[$category]['name'] : $category }}</button>
             @endforeach
         </div>
@@ -178,7 +179,7 @@
                     <td><span class="badge rounded-pill bg-body-tertiary text-body border" title="${esc(PROGRAMS[r.program].name)}">${tag(r.program)}</span></td>
                     ${ETEEAP
                         ? `<td class="small">${esc(r.age ?? '—')}</td><td class="small">${esc(r.education ?? '—')}</td><td class="small text-nowrap">${workYears(r)}</td><td>${pill(...ASSESS[r.assess])}</td>`
-                        : `<td>${pill(r.mode, r.mode === 'Online' ? 'info' : 'secondary')}</td><td class="small">${esc(r.year)}</td><td class="small">${esc(r.working)}</td>`}
+                        : `<td>${pill(r.mode, r.mode === 'Online' ? 'info' : r.mode === 'Blended' ? 'secondary' : r.mode === 'Face to face' ? 'warning' : 'light')}</td><td class="small">${esc(r.year)}</td><td class="small">${esc(r.working)}</td>`}
                     <td>${pill(r.exam_paid == null ? 'Not recorded' : r.exam_paid ? 'Exam fee paid' : 'Exam fee not paid', r.exam_paid == null ? 'secondary' : r.exam_paid ? 'primary' : 'danger')}</td>
                     <td>${pill(...(RESULTS[examResult(r)] || RESULTS.unknown))}</td>
                     <td>${pill(reserved(r) ? 'Reservation paid' : 'Not yet paid', reserved(r) ? 'info' : 'secondary')}</td>
